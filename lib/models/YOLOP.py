@@ -161,7 +161,7 @@ class MCnet(nn.Module):
             b.data[:, 5:] += math.log(0.6 / (m.nc - 0.99)) if cf is None else torch.log(cf / cf.sum())  # cls
             mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
-def get_net(cfg, **kwargs): 
+def get_net(**kwargs): 
     m_block_cfg = YOLOP
     model = MCnet(m_block_cfg, **kwargs)
     return model

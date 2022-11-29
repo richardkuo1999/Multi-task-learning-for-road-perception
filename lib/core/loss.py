@@ -8,7 +8,7 @@ class MultiHeadLoss(nn.Module):
     """
     collect all the loss we need
     """
-    def __init__(self, losses, cfg, lambdas=None):
+    def __init__(self, losses, hyp, lambdas=None):
         """
         Inputs:
         - losses: (list)[nn.Module, nn.Module, ...]
@@ -23,7 +23,7 @@ class MultiHeadLoss(nn.Module):
 
         self.losses = nn.ModuleList(losses)
         self.lambdas = lambdas
-        self.cfg = cfg
+        self.hyp = hyp
 
     def forward(self, head_fields, head_targets, shapes, model):
         """
@@ -64,10 +64,10 @@ class MultiHeadLoss(nn.Module):
             head_losses: list containing losses
 
         """
-        cfg = self.cfg
+        hyp = self.hyp
         device = targets[0].device
         lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
-        tcls, tbox, indices, anchors = build_targets(cfg, predictions[0], targets[0], model)  # targets
+        tcls, tbox, indices, anchors = build_targets(hyp, predictions[0], targets[0], model)  # targets
 
         # Class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
         cp, cn = smooth_BCE(eps=0.0)
@@ -130,37 +130,32 @@ class MultiHeadLoss(nn.Module):
         liou_ll = 1 - IoU
 
         s = 3 / no  # output count scaling
-        lcls *= cfg.LOSS.CLS_GAIN * s * self.lambdas[0]
-        lobj *= cfg.LOSS.OBJ_GAIN * s * (1.4 if no == 4 else 1.) * self.lambdas[1]
-        lbox *= cfg.LOSS.BOX_GAIN * s * self.lambdas[2]
+        lcls *= hyp['cls_gain'] * s * self.lambdas[0]
+        lobj *= hyp['obj_gain'] * s * (1.4 if no == 4 else 1.) * self.lambdas[1]
+        lbox *= hyp['box_gain'] * s * self.lambdas[2]
 
-        lseg_da *= cfg.LOSS.DA_SEG_GAIN * self.lambdas[3]
-        lseg_ll *= cfg.LOSS.LL_SEG_GAIN * self.lambdas[4]
-        liou_ll *= cfg.LOSS.LL_IOU_GAIN * self.lambdas[5]
+        lseg_da *= hyp['da_seg_gain'] * self.lambdas[3]
+        lseg_ll *= hyp['ll_seg_gain'] * self.lambdas[4]
+        liou_ll *= hyp['ll_iou_gain'] * self.lambdas[5]
 
         
-        if cfg.TRAIN.DET_ONLY or cfg.TRAIN.ENC_DET_ONLY or cfg.TRAIN.DET_ONLY:
+        if hyp['det_only'] or hyp['enc_det_only']:
             lseg_da = 0 * lseg_da
             lseg_ll = 0 * lseg_ll
             liou_ll = 0 * liou_ll
             
-        if cfg.TRAIN.SEG_ONLY or cfg.TRAIN.ENC_SEG_ONLY:
+        if  hyp['seg_only'] or hyp['enc_seg_only'] or \
+                         hyp['lane_only'] or hyp['drivable_only']:
             lcls = 0 * lcls
             lobj = 0 * lobj
             lbox = 0 * lbox
 
-        if cfg.TRAIN.LANE_ONLY:
-            lcls = 0 * lcls
-            lobj = 0 * lobj
-            lbox = 0 * lbox
-            lseg_da = 0 * lseg_da
+            if hyp['lane_only']:
+                lseg_da = 0 * lseg_da
 
-        if cfg.TRAIN.DRIVABLE_ONLY:
-            lcls = 0 * lcls
-            lobj = 0 * lobj
-            lbox = 0 * lbox
-            lseg_ll = 0 * lseg_ll
-            liou_ll = 0 * liou_ll
+            if hyp['drivable_only']:
+                lseg_ll = 0 * lseg_ll
+                liou_ll = 0 * liou_ll
 
         loss = lbox + lobj + lcls + lseg_da + lseg_ll + liou_ll
         # loss = lseg
@@ -168,7 +163,7 @@ class MultiHeadLoss(nn.Module):
         return loss, (lbox.item(), lobj.item(), lcls.item(), lseg_da.item(), lseg_ll.item(), liou_ll.item(), loss.item())
 
 
-def get_loss(cfg, device):# FIXME 
+def get_loss(hyp, device):
     """
     get MultiHeadLoss
 
@@ -182,18 +177,18 @@ def get_loss(cfg, device):# FIXME
 
     """
     # class loss criteria
-    BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([cfg.LOSS.CLS_POS_WEIGHT])).to(device)
+    BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
     # object loss criteria
-    BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([cfg.LOSS.OBJ_POS_WEIGHT])).to(device)
+    BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
     # segmentation loss criteria
-    BCEseg = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([cfg.LOSS.SEG_POS_WEIGHT])).to(device)
+    BCEseg = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
     # Focal loss
-    gamma = cfg.LOSS.FL_GAMMA  # focal loss gamma
+    gamma = hyp['fl_gamma']  # focal loss gamma
     if gamma > 0:
         BCEcls, BCEobj = FocalLoss(BCEcls, gamma), FocalLoss(BCEobj, gamma)
 
     loss_list = [BCEcls, BCEobj, BCEseg]
-    loss = MultiHeadLoss(loss_list, cfg=cfg, lambdas=cfg.LOSS.MULTI_HEAD_LAMBDA)
+    loss = MultiHeadLoss(loss_list, hyp=hyp, lambdas=None ) #lambdas=hyp['multi_head_lambda']
     return loss
 
 # example
