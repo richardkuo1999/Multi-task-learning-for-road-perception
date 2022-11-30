@@ -27,8 +27,7 @@ from tqdm import tqdm
 from lib.core.loss import get_loss
 from lib.core.function import train, validate
 from lib.core.general import fitness
-from lib.utils.utils import save_checkpoint, \
-                            get_optimizer, is_parallel, \
+from lib.utils.utils import get_optimizer, is_parallel, \
                             torch_distributed_zero_first \
                             
 from lib.utils.autoanchor import run_anchor
@@ -206,14 +205,11 @@ def main(args, hyp, device, tb_writer):
                 # measure elapsed time
                 batch_time.update(time.time() - start)
                 if i % 10 == 0:
-                    msg = 'Epoch: [{0}][{1}/{2}]\t' \
-                        'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)\t' \
-                        'Speed {speed:.1f} samples/s\t' \
-                        'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)\t' \
-                        'Loss {loss.val:.5f} ({loss.avg:.5f})'.format(
-                            epoch, i, len(train_loader), batch_time=batch_time,
-                            speed=input.size(0)/batch_time.val,
-                            data_time=data_time, loss=losses)
+                    msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}] \
+                            Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s) \
+                            peed {input.size(0)/batch_time.val:.1f} samples/s \
+                            Data {data_time.val:.3f}s ({data_time.avg:.3f}s) \
+                            Loss {losses.val:.5f} ({losses.avg:.5f})'
                     logger.info(msg)
                     # Write
                     with open(results_file, 'a') as f:
@@ -233,9 +229,9 @@ def main(args, hyp, device, tb_writer):
         lr_scheduler.step()
 
         # evaluate on validation set
-        if (epoch > args.val_start and (epoch % args.val_freq == 0 or epoch == epochs)) and args.global_rank in [-1, 0]:
+        if (rank in [-1, 0] and epoch > args.val_start and (epoch % args.val_freq == 0 or epoch == epochs)):
             # print('validate')
-            da_segment_results,ll_segment_results,detect_results, total_loss,maps, times = validate(
+            da_segment_results,ll_segment_results,detect_results, total_loss, maps, times = validate(
                 epoch, args, hyp, valid_loader, valid_dataset, model, criterion,
                 save_dir, tb_writer,
                 logger, device, rank
@@ -243,15 +239,11 @@ def main(args, hyp, device, tb_writer):
 
             fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
             
-            msg = 'Epoch: [{0}]    Loss({loss:.3f})\n' \
-                      'Driving area Segment: Acc({da_seg_acc:.3f})    IOU ({da_seg_iou:.3f})    mIOU({da_seg_miou:.3f})\n' \
-                      'Lane line Segment: Acc({ll_seg_acc:.3f})    IOU ({ll_seg_iou:.3f})  mIOU({ll_seg_miou:.3f})\n' \
-                      'Detect: P({p:.3f})  R({r:.3f})  mAP@0.5({map50:.3f})  mAP@0.5:0.95({map:.3f})\n'\
-                      'Time: inference({t_inf:.4f}s/frame)  nms({t_nms:.4f}s/frame)'.format(
-                          epoch,  loss=total_loss, da_seg_acc=da_segment_results[0],da_seg_iou=da_segment_results[1],da_seg_miou=da_segment_results[2],
-                          ll_seg_acc=ll_segment_results[0],ll_seg_iou=ll_segment_results[1],ll_seg_miou=ll_segment_results[2],
-                          p=detect_results[0],r=detect_results[1],map50=detect_results[2],map=detect_results[3],
-                          t_inf=times[0], t_nms=times[1])
+            msg = f'Epoch: [{epoch}]    Loss({total_loss:.3f})\n \
+                    Driving area Segment: Acc({da_segment_results[0]:.3f})    IOU ({da_segment_results[1]:.3f})    mIOU({da_segment_results[2]:.3f})\n \
+                    Lane line Segment: Acc({ll_segment_results[0]:.3f})    IOU ({ll_segment_results[1]:.3f})  mIOU({ll_segment_results[2]:.3f})\n \
+                    Detect: P({detect_results[0]:.3f})  R({detect_results[1]:.3f})  mAP@0.5({detect_results[2]:.3f})  mAP@0.5:0.95({detect_results[3]:.3f})\n \
+                    Time: inference({times[0]:.4f}s/frame)  nms({times[1]:.4f}s/frame)'
             logger.info(msg)
             with open(results_file, 'a') as f:
                         f.write(msg+'\n')  
@@ -262,44 +254,28 @@ def main(args, hyp, device, tb_writer):
             # else:
             #     best_model = False
 
-        # save checkpoint model and best model
-        if rank in [-1, 0]:
+            # save checkpoint model and best model
+            
             savepath = os.path.join(wdir, f'epoch-{epoch}.pth')
             logger.info('=> saving checkpoint to {}'.format(savepath))
-            save_checkpoint(
-                epoch=epoch,
-                name=args.name,
-                model=model,
+            ckpt = {
+                'epoch': epoch,
+                'model': args.name,
+                'state_dict': (model.module if is_parallel(model) else model).state_dict(),
                 # 'best_state_dict': model.module.state_dict(),
                 # 'perf': perf_indicator,
-                optimizer=optimizer,
-                output_dir=wdir,
-                filename=f'epoch-{epoch}.pth'
-            )
-            save_checkpoint(
-                epoch=epoch,
-                name=args.name,
-                model=model,
-                # 'best_state_dict': model.module.state_dict(),
-                # 'perf': perf_indicator,
-                optimizer=optimizer,
-                output_dir=os.path.join(args.logDir, args.dataset),
-                filename='checkpoint.pth'
-            )
+                'optimizer': optimizer.state_dict(),
+            }
+            torch.save(ckpt, savepath)
+            del ckpt
 
     # save final model
     if rank in [-1, 0]:
-        final_model_state_file = os.path.join(
-            wdir, 'final_state.pth'
-        )
-        logger.info('=> saving final model state to {}'.format(
-            final_model_state_file)
-        )
-        model_state = model.module.state_dict() if is_parallel(model) else model.state_dict()
-        torch.save(model_state, final_model_state_file)
-        tb_writer['writer'].close()
+        pass
     else:
         dist.destroy_process_group()
+    torch.cuda.empty_cache()
+    return
 
 
 if __name__ == '__main__':

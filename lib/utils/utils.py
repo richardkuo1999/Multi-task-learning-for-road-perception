@@ -77,20 +77,20 @@ def get_optimizer(hyp, model):
     return optimizer
 
 
-def save_checkpoint(epoch, name, model, optimizer, output_dir, filename, is_best=False):
-    model_state = model.module.state_dict() if is_parallel(model) else model.state_dict()
-    checkpoint = {
-            'epoch': epoch,
-            'model': name,
-            'state_dict': model_state,
-            # 'best_state_dict': model.module.state_dict(),
-            # 'perf': perf_indicator,
-            'optimizer': optimizer.state_dict(),
-        }
-    torch.save(checkpoint, os.path.join(output_dir, filename))
-    if is_best and 'state_dict' in checkpoint:
-        torch.save(checkpoint['best_state_dict'],
-                   os.path.join(output_dir, 'model_best.pth'))
+# def save_checkpoint(epoch, name, model, optimizer, output_dir, filename, is_best=False):
+#     model_state = model.module.state_dict() if is_parallel(model) else model.state_dict()
+#     checkpoint = {
+#             'epoch': epoch,
+#             'model': name,
+#             'state_dict': model_state,
+#             # 'best_state_dict': model.module.state_dict(),
+#             # 'perf': perf_indicator,
+#             'optimizer': optimizer.state_dict(),
+#         }
+#     torch.save(checkpoint, os.path.join(output_dir, filename))
+#     if is_best and 'state_dict' in checkpoint:
+#         torch.save(checkpoint['best_state_dict'],
+#                    os.path.join(output_dir, 'model_best.pth'))
 
 
 def initialize_weights(model):
