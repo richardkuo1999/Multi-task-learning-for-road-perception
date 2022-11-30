@@ -21,7 +21,7 @@ from test import AverageMeter, test
 from utils.autoanchor import check_anchors
 from models.YOLOP import get_net
 from utils.datasets import create_dataloader
-from utils.general import colorstr, set_logging, increment_path
+from utils.general import colorstr, set_logging, increment_path, write_log, val_tensorboard
 from utils.metrics import fitness
 from utils.loss import get_loss
 from utils.torch_utils import select_device
@@ -41,17 +41,15 @@ logger = logging.getLogger(__name__)
 
 
 
-def main(args, hyp, device, tb_writer):
+def main(args, hyp, device, writer):
     logger.info(colorstr('hyperparameters: ') + ', '\
                                 .join(f'{k}={v}' for k, v in hyp.items()))
-    save_dir, epochs = Path(args.save_dir), args.epochs
+    save_dir, maxEpochs = Path(args.save_dir), args.epochs
     begin_epoch = 0 
 
     # Directories
     wdir = save_dir / 'weights'
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
-    # last = wdir / 'last.pt'
-    # best = wdir / 'best.pt'
     results_file = save_dir / 'results.txt'
 
     # Save run settings
@@ -67,13 +65,17 @@ def main(args, hyp, device, tb_writer):
     print("begin to build up model...")
     model = get_net().to(device)
 
+
     # loss function 
     criterion = get_loss(hyp, device)
+
+
     # Optimizer
     if hyp['optimizer'] == 'sgd':
         optimizer = torch.optim.SGD(
             filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-            momentum=hyp['momentum'],weight_decay=hyp['wd'],nesterov=hyp['nesterov'])
+            momentum=hyp['momentum'],weight_decay=hyp['wd'],
+            nesterov=hyp['nesterov'])
     elif hyp['optimizer'] == 'adam':
         optimizer = torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
@@ -87,11 +89,15 @@ def main(args, hyp, device, tb_writer):
     print("begin to load data")
     normalize = {'mean':[0.485, 0.456, 0.406], 
                  'std':[0.229, 0.224, 0.225]}
-    train_loader, train_dataset = \
-                create_dataloader(args, hyp, args.train_batch_size, normalize)
+    
+    train_loader, train_dataset = create_dataloader(args, hyp, \
+                                    args.train_batch_size, normalize)
     num_batch = len(train_loader)
-    valid_loader, valid_dataset = \
-            create_dataloader(args, hyp, args.test_batch_size, normalize,  is_train=False, shuffle=False)
+    
+    valid_loader, valid_dataset = create_dataloader(args, hyp, 
+                                                args.test_batch_size, normalize,  
+                                                is_train=False, shuffle=False)
+
     print('load data finished')
     
 
@@ -100,14 +106,15 @@ def main(args, hyp, device, tb_writer):
     # AUTOANCHOR
     if args.need_autoanchor:
         logger.info("begin check anchors")
-        check_anchors(train_dataset, model=model, thr=hyp['anchor_threshold'], imgsz=min(args.img_size))
+        check_anchors(train_dataset, model=model, thr=hyp['anchor_threshold'], 
+                                                    imgsz=min(args.img_size))
     else:
         logger.info("anchors loaded successfully")
         det = model.model[model.detector_index]
         logger.info(str(det.anchors))
 
 
-    lf = lambda x: ((1 + math.cos(x * math.pi / epochs)) / 2) * \
+    lf = lambda x: ((1 + math.cos(x * math.pi / maxEpochs)) / 2) * \
                    (1 - hyp['lrf']) + hyp['lrf']  # cosine
     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
 
@@ -120,7 +127,8 @@ def main(args, hyp, device, tb_writer):
     num_warmup = max(round(hyp['warmup_epochs'] * num_batch), 1000)
     scaler = amp.GradScaler(enabled=device.type != 'cpu')
     print('=> start training...')
-    for epoch in range(begin_epoch+1, epochs+1):
+    global_steps = 0
+    for epoch in range(begin_epoch, maxEpochs):
 
         model.train()
         start = time.time()
@@ -132,25 +140,28 @@ def main(args, hyp, device, tb_writer):
 
             if num_iter < num_warmup:
                 # warm up
-                lf = lambda x: ((1 + math.cos(x * math.pi / args.epochs)) / 2) * \
+                lf = lambda x: ((1 + math.cos(x * math.pi / maxEpochs)) / 2)* \
                             (1 - hyp['lrf']) + hyp['lrf']  # cosine
                 xi = [0, num_warmup]
-                # model.gr = np.interp(ni, xi, [0.0, 1.0])  # iou loss ratio (obj_loss = 1.0 or iou)
+                # model.gr = np.interp(ni, xi, [0.0, 1.0])  
+                # # iou loss ratio (obj_loss = 1.0 or iou)
                 for j, x in enumerate(optimizer.param_groups):
-                    # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
+                    # bias lr falls from 0.1 to lr0, 
+                    # all other lrs rise from 0.0 to lr0
                     x['lr'] = np.interp(num_iter, xi, [hyp['warmup_biase_lr'] \
-                                        if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                                        if j == 2 else 0.0, x['initial_lr'] *\
+                                                                 lf(epoch)])
                     if 'momentum' in x:
-                        x['momentum'] = np.interp(num_iter, xi, [hyp['warmup_momentum'], 
-                                                                    hyp['momentum']])
+                        x['momentum'] = np.interp(num_iter, xi, 
+                                                [hyp['warmup_momentum'], 
+                                                    hyp['momentum']])
+            
 
             data_time.update(time.time() - start)
-            if not args.debug:
-                input = input.to(device, non_blocking=True)
-                assign_target = []
-                for tgt in target:
-                    assign_target.append(tgt.to(device))
-                target = assign_target
+            input = input.to(device, non_blocking=True)
+            target = [gt.to(device) for gt in target]
+
+            # Forward
             with amp.autocast(enabled=device.type != 'cpu'):
                 outputs = model(input)
                 total_loss, head_losses = criterion(outputs, target, shapes,model)
@@ -178,25 +189,17 @@ def main(args, hyp, device, tb_writer):
                         f'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)      '+\
                         f'Loss {losses.val:.5f} ({losses.avg:.5f})'
                 logger.info(msg)
-                # Write
-                with open(results_file, 'a') as f:
-                    f.write(msg+'\n')  
-
-                writer = tb_writer['writer']
-                global_steps = tb_writer['train_global_steps']
+                # Write 
+                write_log(results_file, msg)
                 writer.add_scalar('train_loss', losses.val, global_steps)
-                # writer.add_scalar('train_acc', acc.val, global_steps)
-                tb_writer['train_global_steps'] = global_steps + 1
+                global_steps += 1
 
 
-        # # train for one epoch
-        # train(args, hyp, train_loader, model, criterion, optimizer, scaler,
-        #       epoch, num_batch, num_warmup, tb_writer, logger, device)
-        
         lr_scheduler.step()
 
         # evaluate on validation set
-        if (epoch > args.val_start and (epoch % args.val_freq == 0 or epoch == epochs)):
+        if (epoch > args.val_start and (epoch % args.val_freq == 0 
+                                                    or epoch == maxEpochs)):
             # print('validate')
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
                 epoch, args, hyp, valid_loader, model, criterion,
@@ -205,19 +208,10 @@ def main(args, hyp, device, tb_writer):
 
             fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
 
-            writer = tb_writer['writer']
-            global_steps = tb_writer['train_global_steps']
-            writer.add_scalar('val_loss', losses.avg, global_steps)
-            writer.add_scalar('Driving_area_Segment_Acc', da_segment_result[0], global_steps)
-            writer.add_scalar('Driving_area_Segment_IOU', da_segment_result[1], global_steps)
-            writer.add_scalar('Driving_area_Segment_mIOU', da_segment_result[2], global_steps)
-            writer.add_scalar('Lane_line_Segment_Acc', ll_segment_result[0], global_steps)
-            writer.add_scalar('Lane_line_Segment_IOU', ll_segment_result[1], global_steps)
-            writer.add_scalar('Lane_line_Segment_mIOU', ll_segment_result[2], global_steps)
-            writer.add_scalar('Detect_P', detect_result[0], global_steps)
-            writer.add_scalar('Detect_R', detect_result[1], global_steps)
-            writer.add_scalar('Detect_mAP@0.5', detect_result[2], global_steps)
-            writer.add_scalar('Detect_mAP@0.5:0.95', detect_result[3], global_steps)
+            # validation result tensorboard
+            val_tensorboard(writer, global_steps-1, da_segment_result, 
+                            ll_segment_result, detect_result, total_loss, maps, t)
+
             # if perf_indicator >= best_perf:
             #     best_perf = perf_indicator
             #     best_model = True
@@ -226,7 +220,7 @@ def main(args, hyp, device, tb_writer):
 
             # save checkpoint model and best model
             
-            savepath = os.path.join(wdir, f'epoch-{epoch}.pth')
+            savepath = wdir / f'epoch-{epoch}.pth'
             logger.info('=> saving checkpoint to {}'.format(savepath))
             ckpt = {
                 'epoch': epoch,
@@ -247,12 +241,12 @@ def main(args, hyp, device, tb_writer):
     
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--hyp', type=str, default='lib/data/hyp.scratch.yolop.yaml', 
+    parser.add_argument('--hyp', type=str, 
+                            default='lib/data/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
     parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--debug', type=bool, default=False)
 
     parser.add_argument('--saveJson', type=bool, default=False)
     parser.add_argument('--saveTxt', type=bool, default=False)
@@ -290,13 +284,17 @@ def parse_args():
     # dataset
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
-    parser.add_argument('--dataRoot', type=str, default='F:/dataset/BDD/bdd100k_images_10k/bdd100k/images/10k', 
+    parser.add_argument('--dataRoot', type=str, 
+                    default='F:/dataset/BDD/bdd100k_images_10k/bdd100k/images/10k', 
                             help='the path of images folder')
-    parser.add_argument('--labelRoot', type=str, default='F:/dataset/BDD/labels/10k', 
+    parser.add_argument('--labelRoot', type=str, 
+                    default='F:/dataset/BDD/labels/10k', 
                             help='the path of det_annotations folder')
-    parser.add_argument('--maskRoot', type=str, default='F:/dataset/BDD/labels/bdd_seg_gt', 
+    parser.add_argument('--maskRoot', type=str, 
+                    default='F:/dataset/BDD/labels/bdd_seg_gt', 
                             help='the path of da_seg_annotations folder')
-    parser.add_argument('--laneRoot', type=str, default='F:/dataset/BDD/labels/bdd_lane_gt', 
+    parser.add_argument('--laneRoot', type=str, 
+                    default='F:/dataset/BDD/labels/bdd_lane_gt', 
                             help='the path of ll_seg_annotations folder')
     parser.add_argument('--trainSet', type=str, default='train', 
                             help='IOU threshold for NMS')
@@ -342,18 +340,15 @@ if __name__ == '__main__':
                 'det_only':DET_ONLY})
 
 
-    args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
+    args.save_dir = increment_path(Path(args.logDir)/ args.dataset) 
 
     # Train
     logger.info(args)
     prefix = colorstr('tensorboard: ')
-    logger.info(f"{prefix}Start with 'tensorboard --logdir {args.logDir}', view at http://localhost:6006/")
-    tb_writer = SummaryWriter(args.save_dir)  # Tensorboard
-    tb_writer ={
-        'writer':tb_writer,
-        'train_global_steps':0
-    }
-    main(args, hyp, device, tb_writer)
+    logger.info(f"{prefix}Start with 'tensorboard --logdir {args.logDir}'"+\
+                                        ", view at http://localhost:6006/")
+    writer = SummaryWriter(args.save_dir)  # Tensorboard
+    main(args, hyp, device, writer)
  
 
 

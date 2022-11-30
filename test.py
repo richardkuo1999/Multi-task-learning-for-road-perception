@@ -18,7 +18,7 @@ from lib.core.general import non_max_suppression,check_img_size,scale_coords,\
 
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device
-from utils.general import increment_path
+from utils.general import increment_path, write_log
 from models.YOLOP import get_net
 from utils.loss import get_loss
 
@@ -74,7 +74,8 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     save_dir.mkdir(parents=True, exist_ok=True)
     save_dir = str(save_dir)
 
-    _, imgsz = [check_img_size(x, s=max_stride) for x in args.img_size] #imgsz is multiple of max_stride
+     #imgsz is multiple of max_stride
+    _, imgsz = [check_img_size(x, s=max_stride) for x in args.img_size]
     batch_size = args.test_batch_size
     training = False
     is_coco = False #is coco dataset
@@ -84,7 +85,8 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     log_imgs,wandb = min(16,100), None
 
     nc = 1
-    iouv = torch.linspace(0.5,0.95,10).to(device)     #iou vector for mAP@0.5:0.95
+     #iou vector for mAP@0.5:0.95
+    iouv = torch.linspace(0.5,0.95,10).to(device)    
     niou = iouv.numel()
 
     try:
@@ -98,11 +100,13 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     da_metric = SegmentationMetric(args.num_seg_class) #segment confusion matrix    
     ll_metric = SegmentationMetric(2) #segment confusion matrix
 
-    names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
+    names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') \
+                                                        else model.module.names)}
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
     coco91class = coco80_to_coco91_class()
     
-    s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
+    s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 
+                                                        'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t_inf, t_nms = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     
     losses = AverageMeter()
@@ -123,13 +127,10 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
 
     for batch_i, (img, target, paths, shapes) in tqdm(enumerate(val_loader), total=len(val_loader)):
-        if not args.debug:
-            img = img.to(device, non_blocking=True)
-            assign_target = []
-            for tgt in target:
-                assign_target.append(tgt.to(device))
-            target = assign_target
-            nb, _, height, width = img.shape    #batch size, channel, height, width
+
+        img = img.to(device, non_blocking=True)
+        target = [gt.to(device) for gt in target]
+        nb, _, height, width = img.shape    #batch size, channel, height, width
 
         with torch.no_grad():
             pad_w, pad_h = shapes[0][1][1]
@@ -432,8 +433,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
         logger.info(msg)
     else:
         print(msg)
-    with open(results_file, 'a') as f:
-                f.write(msg+'\n') 
+    write_log(results_file, msg)
 
     
     
@@ -462,7 +462,6 @@ def parse_args():
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
     parser.add_argument('--num_seg_class', type=int, default=2)
-    parser.add_argument('--debug', type=bool, default=False)
     # dataset
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')

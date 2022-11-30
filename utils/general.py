@@ -11,6 +11,10 @@ def set_logging():
         format="%(message)s",
         level=logging.INFO)
 
+def write_log(results_file, msg):
+    with open(results_file, 'a') as f:
+        f.write(msg+'\n')  
+        
 def colorstr(*input):
     # Colors a string https://en.wikipedia.org/wiki/ANSI_escape_code, i.e.  colorstr('blue', 'hello world')
     *opt, string = input if len(input) > 1 else ('blue', 'bold', input[0])  # color arguments, string
@@ -43,10 +47,24 @@ def increment_path(path, exist_ok=True, sep=''):
     path = path / time_str
     path = Path(path)  # os-agnostic
     if (path.exists() and exist_ok) or (not path.exists()):
-        return str(path)
+        return path
     else:
         dirs = glob.glob(f"{path}{sep}*")  # similar paths
         matches = [re.search(rf"%s{sep}(\d+)" % path.stem, d) for d in dirs]
         i = [int(m.groups()[0]) for m in matches if m]  # indices
         n = max(i) + 1 if i else 2  # increment number
-        return f"{path}{sep}{n}"  # update path
+        return path / sep / n  # update path
+
+def val_tensorboard(writer,global_steps, da_segment_result, ll_segment_result, detect_result,
+                     total_loss, maps, t):
+    writer.add_scalar('val_loss', total_loss, global_steps)
+    writer.add_scalar('Driving_area_Segment_Acc', da_segment_result[0], global_steps)
+    writer.add_scalar('Driving_area_Segment_IOU', da_segment_result[1], global_steps)
+    writer.add_scalar('Driving_area_Segment_mIOU', da_segment_result[2], global_steps)
+    writer.add_scalar('Lane_line_Segment_Acc', ll_segment_result[0], global_steps)
+    writer.add_scalar('Lane_line_Segment_IOU', ll_segment_result[1], global_steps)
+    writer.add_scalar('Lane_line_Segment_mIOU', ll_segment_result[2], global_steps)
+    writer.add_scalar('Detect_P', detect_result[0], global_steps)
+    writer.add_scalar('Detect_R', detect_result[1], global_steps)
+    writer.add_scalar('Detect_mAP@0.5', detect_result[2], global_steps)
+    writer.add_scalar('Detect_mAP@0.5:0.95', detect_result[3], global_steps)
