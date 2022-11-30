@@ -6,17 +6,17 @@ Project Description
 
 ### Todo
 
+- [ ] val image result fix  
 - [ ] change Backbone  
 - [ ] data process  
 - [ ] let Lane Line  Segment Head can be classified  
 
 ### In Progress
 
-- [ ] val image result fix  
-- [ ] add tensorboard  
 - [ ] code refactoring  
 
 ### Done ✓
 
+- [x] add tensorboard  
 - [x] train the baseline  
 

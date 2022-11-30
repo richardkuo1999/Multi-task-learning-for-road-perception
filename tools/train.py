@@ -17,23 +17,27 @@ import torch.distributed as dist
 import torch.backends.cudnn
 import torch.optim
 import torch.utils.data
-import torch.utils.data.distributed
-import torchvision.transforms as transforms
+
+
 import numpy as np
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-import lib.dataset as dataset
+
+from lib.utils.datasets import create_dataloader
 from lib.core.loss import get_loss
 from lib.core.function import train, validate
 from lib.core.general import fitness
 from lib.models.YOLOP import get_net
-from lib.utils.utils import create_logger, select_device, save_checkpoint, \
-                            get_optimizer, is_parallel, DataLoaderX, \
-                            torch_distributed_zero_first, set_logging, colorstr, \
-                            increment_path
+from lib.utils.utils import save_checkpoint, \
+                            get_optimizer, is_parallel, \
+                            torch_distributed_zero_first \
+                            
 from lib.utils.autoanchor import run_anchor
 
+from utils.general import colorstr, set_logging, increment_path
+
+from utils.torch_utils import select_device
 
 
 SEG_ONLY = False           # Only train two segmentation branchs
@@ -69,15 +73,14 @@ class AverageMeter(object):
 def main(args, hyp, device, tb_writer):
     logger.info(colorstr('hyperparameters: ') + ', '\
                                 .join(f'{k}={v}' for k, v in hyp.items()))
-    save_dir, epochs, batch_size, total_batch_size, rank = \
-        Path(args.save_dir), args.epochs, args.batch_size, args.total_batch_size,\
-        args.global_rank
-    
+    save_dir, epochs,  rank = Path(args.save_dir), args.epochs, args.global_rank
+    begin_epoch = 0 
+
     # Directories
     wdir = save_dir / 'weights'
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
-    last = wdir / 'last.pt'
-    best = wdir / 'best.pt'
+    # last = wdir / 'last.pt'
+    # best = wdir / 'best.pt'
     results_file = save_dir / 'results.txt'
 
     # Save run settings
@@ -87,195 +90,38 @@ def main(args, hyp, device, tb_writer):
         yaml.dump(vars(args), f, sort_keys=False)
 
   
+
+
     # build up model
     print("begin to build up model...")
-    print("load model to device")
     model = get_net().to(device)
-    print("finish build model")
-    
 
     # define loss function (criterion) and optimizer
     criterion = get_loss(hyp, device)
     optimizer = get_optimizer(hyp, model)
+    print("finish build model")
 
 
-
-
-    # load checkpoint model
-    best_perf = 0.0
-    best_model = False
-    last_epoch = -1
-
-    Encoder_para_idx = [str(i) for i in range(0, 17)]
-    Det_Head_para_idx = [str(i) for i in range(17, 25)]
-    Da_Seg_Head_para_idx = [str(i) for i in range(25, 34)]
-    Ll_Seg_Head_para_idx = [str(i) for i in range(34,43)]
-
-    lf = lambda x: ((1 + math.cos(x * math.pi / epochs)) / 2) * \
-                   (1 - hyp['lrf']) + hyp['lrf']  # cosine
-    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
-    begin_epoch = 0 #TODO
-
-
-
-    #   resume
-    if rank in [-1, 0]:
-        checkpoint_file = os.path.join(
-            os.path.join(args.logDir, args.dataset), 'checkpoint.pth'
-        )
-        if os.path.exists(args.pretrain):
-            logger.info("=> loading model '{}'".format(args.pretrain))
-            checkpoint = torch.load(args.pretrain)
-            begin_epoch = checkpoint['epoch']
-            # best_perf = checkpoint['perf']
-            last_epoch = checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            logger.info("=> loaded checkpoint '{}' (epoch {})".format(
-                args.pretrain, checkpoint['epoch']))
-            #args.need_autoanchor = False     #disable autoanchor
-        
-        if os.path.exists(args.pretrain_det):
-            logger.info("=> loading model weight in det branch from '{}'".format(args.pretrain))
-            det_idx_range = [str(i) for i in range(0,25)]
-            model_dict = model.state_dict()
-            checkpoint_file = args.pretrain_det
-            checkpoint = torch.load(checkpoint_file)
-            begin_epoch = checkpoint['epoch']
-            last_epoch = checkpoint['epoch']
-            checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
-            model_dict.update(checkpoint_dict)
-            model.load_state_dict(model_dict)
-            logger.info("=> loaded det branch checkpoint '{}' ".format(checkpoint_file))
-        
-        if args.auto_resume and os.path.exists(checkpoint_file):
-            logger.info("=> loading checkpoint '{}'".format(checkpoint_file))
-            checkpoint = torch.load(checkpoint_file)
-            begin_epoch = checkpoint['epoch']
-            # best_perf = checkpoint['perf']
-            last_epoch = checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            logger.info("=> loaded checkpoint '{}' (epoch {})".format(
-                checkpoint_file, checkpoint['epoch']))
-            #args.need_autoanchor = False     #disable autoanchor
-        # model = model.to(device)
-
-        if hyp['seg_only']:  #Only train two segmentation branch
-            logger.info('freeze encoder and Det head...')
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Encoder_para_idx + Det_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-
-        if hyp['det_only']:  #Only train detection branch
-            logger.info('freeze encoder and two Seg heads...')
-            # print(model.named_parameters)
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Encoder_para_idx + Da_Seg_Head_para_idx + Ll_Seg_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-
-        if hyp['enc_seg_only']:  # Only train encoder and two segmentation branch
-            logger.info('freeze Det head...')
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers 
-                if k.split(".")[1] in Det_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-
-        if hyp['enc_det_only'] or hyp['det_only']:    # Only train encoder and detection branch
-            logger.info('freeze two Seg heads...')
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Da_Seg_Head_para_idx + Ll_Seg_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-
-
-        if hyp['lane_only']: 
-            logger.info('freeze encoder and Det head and Da_Seg heads...')
-            # print(model.named_parameters)
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Encoder_para_idx + Da_Seg_Head_para_idx + Det_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-
-        if hyp['drivable_only']:
-            logger.info('freeze encoder and Det head and Ll_Seg heads...')
-            # print(model.named_parameters)
-            for k, v in model.named_parameters():
-                v.requires_grad = True  # train all layers
-                if k.split(".")[1] in Encoder_para_idx + Ll_Seg_Head_para_idx + Det_Head_para_idx:
-                    print('freezing %s' % k)
-                    v.requires_grad = False
-        
     if rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
+
     # # DDP mode
     if rank != -1:
         model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
 
 
-    # assign model params
-    model.gr = 1.0
-    model.nc = 1
-    # print('build model finished')
-
 
     # Data loading
     print("begin to load data")
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
-
-    train_dataset = eval('dataset.' + args.dataset)(
-        args=args,
-        hyp=hyp,
-        is_train=True,
-        inputsize=args.img_size,
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if rank != -1 else None
-
-    train_loader = DataLoaderX(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=args.workers,
-        sampler=train_sampler,
-        pin_memory=True,
-        collate_fn=dataset.AutoDriveDataset.collate_fn
-    )
+    normalize = {'mean':[0.485, 0.456, 0.406], 
+                 'std':[0.229, 0.224, 0.225]}
+    train_loader, train_dataset = \
+                create_dataloader(args, hyp, normalize)
     num_batch = len(train_loader)
-
     if rank in [-1, 0]:
-        valid_dataset = eval('dataset.' + args.dataset)(
-            args=args,
-            hyp=hyp,
-            is_train=False,
-            inputsize=args.img_size,
-            transform=transforms.Compose([
-                transforms.ToTensor(),
-                normalize,
-            ])
-        )
-
-        valid_loader = DataLoaderX(
-            valid_dataset,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=args.workers,
-            pin_memory=True,
-            collate_fn=dataset.AutoDriveDataset.collate_fn
-        )
-        print('load data finished')
+        valid_loader, valid_dataset = \
+                create_dataloader(args, hyp, normalize, is_train=False, shuffle=False)
+    print('load data finished')
     
 
 
@@ -292,7 +138,14 @@ def main(args, hyp, device, tb_writer):
             logger.info(str(det.anchors))
 
 
+    lf = lambda x: ((1 + math.cos(x * math.pi / epochs)) / 2) * \
+                   (1 - hyp['lrf']) + hyp['lrf']  # cosine
+    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
 
+
+    # assign model params
+    model.gr = 1.0
+    model.nc = 1
 
     # training
     num_warmup = max(round(hyp['warmup_epochs'] * num_batch), 1000)
