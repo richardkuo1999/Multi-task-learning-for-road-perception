@@ -1,33 +1,47 @@
-import argparse
-import os, sys
-import shutil
-import time
-from pathlib import Path
-import imageio
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
-
-print(sys.path)
 import cv2
+import time
+import shutil
+import os, sys
+import argparse
+from tqdm import tqdm
+from pathlib import Path
+from numpy import random
+
 import torch
 import torch.backends.cudnn as cudnn
-from numpy import random
-import scipy.special
-import numpy as np
 import torchvision.transforms as transforms
-import PIL.Image as image
 
-from lib.config import cfg
-from lib.config import update_config
-from lib.utils.utils import create_logger, select_device, time_synchronized
-from lib.models import get_net
+
+from lib.utils.utils import time_synchronized
 from lib.dataset import LoadImages, LoadStreams
 from lib.core.general import non_max_suppression, scale_coords
 from lib.utils import plot_one_box,show_seg_result
-from lib.core.function import AverageMeter
 from lib.core.postprocess import morphological_process, connect_lane
-from tqdm import tqdm
+
+
+from models.YOLOP import get_net
+from utils.general import increment_path
+from utils.torch_utils import select_device
+
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count if self.count != 0 else 0
+
+
 normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
@@ -38,20 +52,15 @@ transform=transforms.Compose([
         ])
 
 
-def detect(cfg,opt):
+def detect(opt, device):
 
-    logger, _, _ = create_logger(
-        cfg, cfg.LOG_DIR, 'demo')
-
-    device = select_device(logger,opt.device)
-    
     if os.path.exists(opt.save_dir):  # output dir
         shutil.rmtree(opt.save_dir)  # delete dir
     os.makedirs(opt.save_dir)  # make new dir
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model
-    model = get_net(cfg)
+    model = get_net()
     checkpoint = torch.load(opt.weights, map_location= device)
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
@@ -166,15 +175,23 @@ def detect(cfg,opt):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--logDir', type=str, default='runs/train',
+                            help='log directory')
     parser.add_argument('--weights', type=str, default='weights/epoch-116.pth', help='model.pth path(s)')
     parser.add_argument('--source', type=str, default='inference/videos', help='source')  # file/folder   ex:inference/images
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--dataset', type=str, default='BddDataset', 
+                            help='save to dataset name')
     parser.add_argument('--save-dir', type=str, default='inference/output', help='directory to save results')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
     opt = parser.parse_args()
+
+    device = select_device(opt.device)
+
+    opt.save_dir = increment_path(Path(opt.logDir)/ opt.dataset)  # increment run
     with torch.no_grad():
-        detect(cfg,opt)
+        detect(opt, device)

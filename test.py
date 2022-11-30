@@ -1,30 +1,20 @@
+import cv2
+import yaml
+import json
+import random
 import argparse
-import time
-import os,sys
+import numpy as np
+from tqdm import tqdm
+from pathlib import Path
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+import torch
 
-sys.path.append(BASE_DIR)
+from lib.utils.utils import time_synchronized
+from lib.utils import plot_img_and_mask,plot_one_box,show_seg_result
 from lib.core.evaluate import ConfusionMatrix,SegmentationMetric
 from lib.core.general import non_max_suppression,check_img_size,scale_coords,\
                             xyxy2xywh,xywh2xyxy,box_iou,coco80_to_coco91_class,\
                             plot_images,ap_per_class,output_to_target
-from lib.utils.utils import time_synchronized
-from lib.utils import plot_img_and_mask,plot_one_box,show_seg_result
-import torch
-from pathlib import Path
-from threading import Thread
-import numpy as np
-from PIL import Image
-from torchvision import transforms
-from pathlib import Path
-import json
-import random
-import cv2
-import math
-from torch.cuda import amp
-from tqdm import tqdm
-import yaml
 
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device

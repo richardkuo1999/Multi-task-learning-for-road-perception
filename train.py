@@ -1,31 +1,23 @@
+import os
+import yaml
+import math
+import time
 import argparse
 import logging
-import os, sys
-import yaml
+import numpy as np
 from pathlib import Path
-import math
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
+from tensorboardX import SummaryWriter
 
-import pprint
-import time
+
 import torch
-import torch.nn.parallel
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.cuda import amp
-import torch.distributed as dist
-import torch.backends.cudnn
 import torch.optim
 import torch.utils.data
+import torch.nn.parallel
+import torch.backends.cudnn
+from torch.cuda import amp
 
 
-import numpy as np
-from tensorboardX import SummaryWriter
-from tqdm import tqdm
-
-
-from tools.test import AverageMeter, test
-
+from test import AverageMeter, test
 from utils.autoanchor import check_anchors
 from models.YOLOP import get_net
 from utils.datasets import create_dataloader
