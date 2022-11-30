@@ -24,17 +24,17 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 
-from utils.datasets import create_dataloader
 from lib.core.loss import get_loss
 from lib.core.function import train, validate
 from lib.core.general import fitness
-from lib.models.YOLOP import get_net
 from lib.utils.utils import save_checkpoint, \
                             get_optimizer, is_parallel, \
                             torch_distributed_zero_first \
                             
 from lib.utils.autoanchor import run_anchor
 
+from models.YOLOP import get_net
+from utils.datasets import create_dataloader
 from utils.general import colorstr, set_logging, increment_path
 
 from utils.torch_utils import select_device
