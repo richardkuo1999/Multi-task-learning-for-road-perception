@@ -6,10 +6,10 @@ from pathlib import Path
 import re
 
 
-def set_logging(rank=-1):
+def set_logging():
     logging.basicConfig(
         format="%(message)s",
-        level=logging.INFO if rank in [-1, 0] else logging.WARN)
+        level=logging.INFO)
 
 def colorstr(*input):
     # Colors a string https://en.wikipedia.org/wiki/ANSI_escape_code, i.e.  colorstr('blue', 'hello world')

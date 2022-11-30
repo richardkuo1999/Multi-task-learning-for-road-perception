@@ -56,25 +56,25 @@ def clean_str(s):
 
 
 
-def get_optimizer(hyp, model):
-    optimizer = None
-    if hyp['optimizer'] == 'sgd':
-        optimizer = optim.SGD(
-            filter(lambda p: p.requires_grad, model.parameters()),
-            lr=hyp['lr0'],
-            momentum=hyp['momentum'],
-            weight_decay=hyp['wd'],
-            nesterov=hyp['nesterov']
-        )
-    elif hyp['optimizer'] == 'adam':
-        optimizer = optim.Adam(
-            filter(lambda p: p.requires_grad, model.parameters()),
-            #model.parameters(),
-            lr=hyp['lr0'],
-            betas=(hyp['momentum'], 0.999)
-        )
+# def get_optimizer(hyp, model):
+#     optimizer = None
+#     if hyp['optimizer'] == 'sgd':
+#         optimizer = optim.SGD(
+#             filter(lambda p: p.requires_grad, model.parameters()),
+#             lr=hyp['lr0'],
+#             momentum=hyp['momentum'],
+#             weight_decay=hyp['wd'],
+#             nesterov=hyp['nesterov']
+#         )
+#     elif hyp['optimizer'] == 'adam':
+#         optimizer = optim.Adam(
+#             filter(lambda p: p.requires_grad, model.parameters()),
+#             #model.parameters(),
+#             lr=hyp['lr0'],
+#             betas=(hyp['momentum'], 0.999)
+#         )
 
-    return optimizer
+#     return optimizer
 
 
 # def save_checkpoint(epoch, name, model, optimizer, output_dir, filename, is_best=False):

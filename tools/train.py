@@ -24,18 +24,14 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 
-from lib.core.loss import get_loss
-from lib.core.function import train, validate
-from lib.core.general import fitness
-from lib.utils.utils import get_optimizer, is_parallel, \
-                            torch_distributed_zero_first \
-                            
-from lib.utils.autoanchor import run_anchor
+from tools.test import AverageMeter, test
 
+from utils.autoanchor import check_anchors
 from models.YOLOP import get_net
 from utils.datasets import create_dataloader
 from utils.general import colorstr, set_logging, increment_path
-
+from utils.metrics import fitness
+from utils.loss import get_loss
 from utils.torch_utils import select_device
 
 
@@ -52,27 +48,11 @@ DET_ONLY = False
 logger = logging.getLogger(__name__)
 
 
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count if self.count != 0 else 0
 
 def main(args, hyp, device, tb_writer):
     logger.info(colorstr('hyperparameters: ') + ', '\
                                 .join(f'{k}={v}' for k, v in hyp.items()))
-    save_dir, epochs,  rank = Path(args.save_dir), args.epochs, args.global_rank
+    save_dir, epochs = Path(args.save_dir), args.epochs
     begin_epoch = 0 
 
     # Directories
@@ -95,18 +75,19 @@ def main(args, hyp, device, tb_writer):
     print("begin to build up model...")
     model = get_net().to(device)
 
-    # define loss function (criterion) and optimizer
+    # loss function 
     criterion = get_loss(hyp, device)
-    optimizer = get_optimizer(hyp, model)
+    # Optimizer
+    if hyp['optimizer'] == 'sgd':
+        optimizer = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
+            momentum=hyp['momentum'],weight_decay=hyp['wd'],nesterov=hyp['nesterov'])
+    elif hyp['optimizer'] == 'adam':
+        optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
+            betas=(hyp['momentum'], 0.999))
+
     print("finish build model")
-
-
-    if rank == -1 and torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
-
-    # # DDP mode
-    if rank != -1:
-        model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank,find_unused_parameters=True)
 
 
 
@@ -115,26 +96,23 @@ def main(args, hyp, device, tb_writer):
     normalize = {'mean':[0.485, 0.456, 0.406], 
                  'std':[0.229, 0.224, 0.225]}
     train_loader, train_dataset = \
-                create_dataloader(args, hyp, normalize)
+                create_dataloader(args, hyp, args.train_batch_size, normalize)
     num_batch = len(train_loader)
-    if rank in [-1, 0]:
-        valid_loader, valid_dataset = \
-                create_dataloader(args, hyp, normalize, is_train=False, shuffle=False)
+    valid_loader, valid_dataset = \
+            create_dataloader(args, hyp, args.test_batch_size, normalize,  is_train=False, shuffle=False)
     print('load data finished')
     
 
 
 
     # AUTOANCHOR
-    if rank in [-1, 0]:
-        if args.need_autoanchor:
-            logger.info("begin check anchors")
-            run_anchor(logger,train_dataset, model=model, thr=hyp['anchor_threshold'], imgsz=min(args.img_size))
-        else:
-            logger.info("anchors loaded successfully")
-            det = model.module.model[model.module.detector_index] if is_parallel(model) \
-                else model.model[model.detector_index]
-            logger.info(str(det.anchors))
+    if args.need_autoanchor:
+        logger.info("begin check anchors")
+        check_anchors(train_dataset, model=model, thr=hyp['anchor_threshold'], imgsz=min(args.img_size))
+    else:
+        logger.info("anchors loaded successfully")
+        det = model.model[model.detector_index]
+        logger.info(str(det.anchors))
 
 
     lf = lambda x: ((1 + math.cos(x * math.pi / epochs)) / 2) * \
@@ -151,8 +129,6 @@ def main(args, hyp, device, tb_writer):
     scaler = amp.GradScaler(enabled=device.type != 'cpu')
     print('=> start training...')
     for epoch in range(begin_epoch+1, epochs+1):
-        if rank != -1:
-            train_loader.sampler.set_epoch(epoch)
 
         model.train()
         start = time.time()
@@ -194,60 +170,62 @@ def main(args, hyp, device, tb_writer):
             scaler.step(optimizer)
             scaler.update()
 
-            if rank in [-1, 0]:
-                # measure accuracy and record loss
-                losses.update(total_loss.item(), input.size(0))
+            # measure accuracy and record loss
+            losses.update(total_loss.item(), input.size(0))
 
-                # _, avg_acc, cnt, pred = accuracy(output.detach().cpu().numpy(),
-                #                                  target.detach().cpu().numpy())
-                # acc.update(avg_acc, cnt)
+            # _, avg_acc, cnt, pred = accuracy(output.detach().cpu().numpy(),
+            #                                  target.detach().cpu().numpy())
+            # acc.update(avg_acc, cnt)
 
-                # measure elapsed time
-                batch_time.update(time.time() - start)
-                if i % 10 == 0:
-                    msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}] \
-                            Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s) \
-                            peed {input.size(0)/batch_time.val:.1f} samples/s \
-                            Data {data_time.val:.3f}s ({data_time.avg:.3f}s) \
-                            Loss {losses.val:.5f} ({losses.avg:.5f})'
-                    logger.info(msg)
-                    # Write
-                    with open(results_file, 'a') as f:
-                        f.write(msg+'\n')  
+            # measure elapsed time
+            batch_time.update(time.time() - start)
+            if i % 10 == 0:
+                msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}]   '+\
+                        f'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)    '+\
+                        f'peed {input.size(0)/batch_time.val:.1f} samples/s     '+\
+                        f'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)      '+\
+                        f'Loss {losses.val:.5f} ({losses.avg:.5f})'
+                logger.info(msg)
+                # Write
+                with open(results_file, 'a') as f:
+                    f.write(msg+'\n')  
 
-                    writer = tb_writer['writer']
-                    global_steps = tb_writer['train_global_steps']
-                    writer.add_scalar('train_loss', losses.val, global_steps)
-                    # writer.add_scalar('train_acc', acc.val, global_steps)
-                    tb_writer['train_global_steps'] = global_steps + 1
+                writer = tb_writer['writer']
+                global_steps = tb_writer['train_global_steps']
+                writer.add_scalar('train_loss', losses.val, global_steps)
+                # writer.add_scalar('train_acc', acc.val, global_steps)
+                tb_writer['train_global_steps'] = global_steps + 1
 
 
         # # train for one epoch
         # train(args, hyp, train_loader, model, criterion, optimizer, scaler,
-        #       epoch, num_batch, num_warmup, tb_writer, logger, device, rank)
+        #       epoch, num_batch, num_warmup, tb_writer, logger, device)
         
         lr_scheduler.step()
 
         # evaluate on validation set
-        if (rank in [-1, 0] and epoch > args.val_start and (epoch % args.val_freq == 0 or epoch == epochs)):
+        if (epoch > args.val_start and (epoch % args.val_freq == 0 or epoch == epochs)):
             # print('validate')
-            da_segment_results,ll_segment_results,detect_results, total_loss, maps, times = validate(
-                epoch, args, hyp, valid_loader, valid_dataset, model, criterion,
-                save_dir, tb_writer,
-                logger, device, rank
+            da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
+                epoch, args, hyp, valid_loader, model, criterion,
+                save_dir,results_file, logger, device, 
             )
 
-            fi = fitness(np.array(detect_results).reshape(1, -1))  #目标检测评价指标
-            
-            msg = f'Epoch: [{epoch}]    Loss({total_loss:.3f})\n \
-                    Driving area Segment: Acc({da_segment_results[0]:.3f})    IOU ({da_segment_results[1]:.3f})    mIOU({da_segment_results[2]:.3f})\n \
-                    Lane line Segment: Acc({ll_segment_results[0]:.3f})    IOU ({ll_segment_results[1]:.3f})  mIOU({ll_segment_results[2]:.3f})\n \
-                    Detect: P({detect_results[0]:.3f})  R({detect_results[1]:.3f})  mAP@0.5({detect_results[2]:.3f})  mAP@0.5:0.95({detect_results[3]:.3f})\n \
-                    Time: inference({times[0]:.4f}s/frame)  nms({times[1]:.4f}s/frame)'
-            logger.info(msg)
-            with open(results_file, 'a') as f:
-                        f.write(msg+'\n')  
+            fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
 
+            writer = tb_writer['writer']
+            global_steps = tb_writer['train_global_steps']
+            writer.add_scalar('val_loss', losses.avg, global_steps)
+            writer.add_scalar('Driving_area_Segment_Acc', da_segment_result[0], global_steps)
+            writer.add_scalar('Driving_area_Segment_IOU', da_segment_result[1], global_steps)
+            writer.add_scalar('Driving_area_Segment_mIOU', da_segment_result[2], global_steps)
+            writer.add_scalar('Lane_line_Segment_Acc', ll_segment_result[0], global_steps)
+            writer.add_scalar('Lane_line_Segment_IOU', ll_segment_result[1], global_steps)
+            writer.add_scalar('Lane_line_Segment_mIOU', ll_segment_result[2], global_steps)
+            writer.add_scalar('Detect_P', detect_result[0], global_steps)
+            writer.add_scalar('Detect_R', detect_result[1], global_steps)
+            writer.add_scalar('Detect_mAP@0.5', detect_result[2], global_steps)
+            writer.add_scalar('Detect_mAP@0.5:0.95', detect_result[3], global_steps)
             # if perf_indicator >= best_perf:
             #     best_perf = perf_indicator
             #     best_model = True
@@ -261,7 +239,7 @@ def main(args, hyp, device, tb_writer):
             ckpt = {
                 'epoch': epoch,
                 'model': args.name,
-                'state_dict': (model.module if is_parallel(model) else model).state_dict(),
+                'state_dict':  model.state_dict(),
                 # 'best_state_dict': model.module.state_dict(),
                 # 'perf': perf_indicator,
                 'optimizer': optimizer.state_dict(),
@@ -269,16 +247,13 @@ def main(args, hyp, device, tb_writer):
             torch.save(ckpt, savepath)
             del ckpt
 
-    # save final model
-    if rank in [-1, 0]:
-        pass
-    else:
-        dist.destroy_process_group()
     torch.cuda.empty_cache()
     return
 
 
-if __name__ == '__main__':
+
+    
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--hyp', type=str, default='lib/data/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
@@ -289,6 +264,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--saveJson', type=bool, default=False)
     parser.add_argument('--saveTxt', type=bool, default=False)
+    parser.add_argument('--allplot', type=bool, default=False)
 
     parser.add_argument('--auto_resume', type=bool, default=False,
                             help='Resume from the last training interrupt')
@@ -298,7 +274,9 @@ if __name__ == '__main__':
                                     set it to be true!')
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--batch_size', type=int, default=11, 
+    parser.add_argument('--train_batch_size', type=int, default=11, 
+                            help='total batch size for all GPUs')
+    parser.add_argument('--test_batch_size', type=int, default=11, 
                             help='total batch size for all GPUs')
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
                             help='[train, test] image sizes')
@@ -308,10 +286,6 @@ if __name__ == '__main__':
                             help='maximum number of dataloader workers')
     parser.add_argument('--name', default='exp', 
                             help='save to project/name')
-    parser.add_argument('--sync-bn', action='store_true', 
-                            help='use SyncBatchNorm, only available in DDP mode')
-    parser.add_argument('--local_rank', type=int, default=-1, 
-                            help='DDP parameter, do not modify')
     parser.add_argument('--conf_thres', type=float, default=0.001,
                             help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, 
@@ -324,13 +298,13 @@ if __name__ == '__main__':
     # dataset
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
-    parser.add_argument('--dataRoot', type=str, default='F:/dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
+    parser.add_argument('--dataRoot', type=str, default='F:/dataset/BDD/bdd100k_images_10k/bdd100k/images/10k', 
                             help='the path of images folder')
-    parser.add_argument('--labelRoot', type=str, default='F:/dataset/BDD100k_10k/labels/10k', 
+    parser.add_argument('--labelRoot', type=str, default='F:/dataset/BDD/labels/10k', 
                             help='the path of det_annotations folder')
-    parser.add_argument('--maskRoot', type=str, default='F:/dataset/BDD100k_10k/labels/bdd_seg_gt', 
+    parser.add_argument('--maskRoot', type=str, default='F:/dataset/BDD/labels/bdd_seg_gt', 
                             help='the path of da_seg_annotations folder')
-    parser.add_argument('--laneRoot', type=str, default='F:/dataset/BDD100k_10k/labels/bdd_lane_gt', 
+    parser.add_argument('--laneRoot', type=str, default='F:/dataset/BDD/labels/bdd_lane_gt', 
                             help='the path of ll_seg_annotations folder')
     parser.add_argument('--trainSet', type=str, default='train', 
                             help='IOU threshold for NMS')
@@ -351,30 +325,19 @@ if __name__ == '__main__':
                                 help='only use deterministic convolution algorithms')
     parser.add_argument('--cudnn_enabled', type=bool, default=True,  
                                 help='controls whether cuDNN is enabled')
-    args = parser.parse_args()
+    return parser.parse_args()
 
-
+if __name__ == '__main__':
     # Set DDP variables
-    args.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' \
-                                                    in os.environ else 1
-    args.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
-    set_logging(args.global_rank)
+    args = parse_args()
+    set_logging()
 
     # cudnn related setting
     torch.backends.cudnn.enabled = args.cudnn_enabled
     torch.backends.cudnn.benchmark = args.cudnn_benchmark
     torch.backends.cudnn.deterministic = args.cudnn_deterministic
 
-    # DDP mode
-    args.total_batch_size = args.batch_size
-    device = select_device(args.device, batch_size=args.batch_size)
-    if args.local_rank != -1:
-        assert torch.cuda.device_count() > args.local_rank
-        torch.cuda.set_device(args.local_rank)
-        device = torch.device('cuda', args.local_rank)
-        dist.init_process_group(backend='nccl', init_method='env://')  # distributed backend
-        assert args.batch_size % args.world_size == 0, '--batch-size must be multiple of CUDA device count'
-        args.batch_size = args.total_batch_size // args.world_size
+    device = select_device(args.device, batch_size=args.train_batch_size)
 
 
     # Hyperparameter
@@ -391,15 +354,13 @@ if __name__ == '__main__':
 
     # Train
     logger.info(args)
-    tb_writer = None  # init loggers
-    if args.global_rank in [-1, 0]:
-        prefix = colorstr('tensorboard: ')
-        logger.info(f"{prefix}Start with 'tensorboard --logdir {args.logDir}', view at http://localhost:6006/")
-        tb_writer = SummaryWriter(args.save_dir)  # Tensorboard
-        tb_writer ={
-            'writer':tb_writer,
-            'train_global_steps':0
-        }
+    prefix = colorstr('tensorboard: ')
+    logger.info(f"{prefix}Start with 'tensorboard --logdir {args.logDir}', view at http://localhost:6006/")
+    tb_writer = SummaryWriter(args.save_dir)  # Tensorboard
+    tb_writer ={
+        'writer':tb_writer,
+        'train_global_steps':0
+    }
     main(args, hyp, device, tb_writer)
  
 

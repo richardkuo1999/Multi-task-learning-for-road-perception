@@ -3,15 +3,28 @@ import logging
 import os
 import platform
 import subprocess
+from contextlib import contextmanager
 from pathlib import Path
 
 import torch
+import torch.nn
 
 try:
     import thop  # for FLOPS computation
 except ImportError:
     thop = None
 logger = logging.getLogger(__name__)
+
+@contextmanager
+def torch_distributed_zero_first(local_rank: int):
+    """
+    Decorator to make all processes in distributed training wait for each local_master to do something.
+    """
+    if local_rank not in [-1, 0]:
+        torch.distributed.barrier()
+    yield
+    if local_rank == 0:
+        torch.distributed.barrier()
 
 
 def date_modified(path=__file__):
@@ -51,3 +64,7 @@ def select_device(device='', batch_size=None):
 
     logger.info(s.encode().decode('ascii', 'ignore') if platform.system() == 'Windows' else s)  # emoji-safe
     return torch.device('cuda:0' if cuda else 'cpu')
+
+
+def is_parallel(model):
+    return type(model) in (torch.nn.parallel.DataParallel, torch.nn.parallel.DistributedDataParallel)

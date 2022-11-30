@@ -11,7 +11,7 @@ class DataLoaderX(DataLoader):
         return BackgroundGenerator(super().__iter__())
 
 
-def create_dataloader(args, hyp, normalize, is_train=True, shuffle=True):
+def create_dataloader(args, hyp, batch_size, normalize, is_train=True, shuffle=True):
     normalize = transforms.Normalize(
             normalize['mean'], normalize['std']
         )
@@ -26,14 +26,11 @@ def create_dataloader(args, hyp, normalize, is_train=True, shuffle=True):
             normalize,
         ])
     )
-    sampler = torch.utils.data.distributed.DistributedSampler(dataset) if args.global_rank != -1 else None
-
     loader = DataLoaderX(
         datasets,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
         shuffle=shuffle,
         num_workers=args.workers,
-        sampler=sampler,
         pin_memory=True,
         collate_fn=dataset.AutoDriveDataset.collate_fn
     )
