@@ -43,7 +43,7 @@ def colorstr(*input):
 
 def increment_path(path, exist_ok=True, sep=''):
     # Increment path, i.e. runs/exp --> runs/exp{sep}0, runs/exp{sep}1 etc.
-    time_str = time.strftime('%Y-%m-%d-%H-%M')
+    time_str = time.strftime('%Y-%m-%d-%H-%M-%S')
     path = path / time_str
     path = Path(path)  # os-agnostic
     if (path.exists() and exist_ok) or (not path.exists()):
