@@ -16,6 +16,8 @@ from lib.core.general import non_max_suppression,check_img_size,scale_coords,\
                             xyxy2xywh,xywh2xyxy,box_iou,coco80_to_coco91_class,\
                             plot_images,ap_per_class,output_to_target
 
+
+
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device
 from utils.general import increment_path, write_log
@@ -445,6 +447,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Test Multitask network')
     parser.add_argument('--hyp', type=str, default='lib/data/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
+                                                help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
@@ -500,6 +504,11 @@ if __name__ == '__main__':
                 'drivable_only':DRIVABLE_ONLY, 'lane_only':LANE_ONLY,
                 'det_only':DET_ONLY})
 
+    args.save_dir = Path(increment_path(Path(args.logDir)/ args.dataset))  # increment run
+    results_file = args.save_dir / 'results.txt'
+    args.save_dir.mkdir(parents=True, exist_ok=True)
+
+    
     # Data loading
     print("begin to load data")
     normalize = {'mean':[0.485, 0.456, 0.406], 
@@ -508,13 +517,10 @@ if __name__ == '__main__':
             create_dataloader(args, hyp,args.test_batch_size, normalize, is_train=False, shuffle=False)
     print('load data finished')
 
-    args.save_dir = Path(increment_path(Path(args.logDir)/ args.dataset))  # increment run
-    results_file = args.save_dir / 'results.txt'
-    args.save_dir.mkdir(parents=True, exist_ok=True)
 
     # build up model
     print("begin to build up model...")
-    model = get_net().to(device)
+    model = get_net(args.cfg).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)

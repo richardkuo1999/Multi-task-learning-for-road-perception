@@ -18,6 +18,7 @@ from lib.utils import plot_one_box,show_seg_result
 from lib.core.postprocess import morphological_process, connect_lane
 
 
+
 from models.YOLOP import get_net
 from utils.general import increment_path
 from utils.torch_utils import select_device
@@ -51,27 +52,27 @@ transform=transforms.Compose([
         ])
 
 
-def detect(opt, device):
-    save_dir = opt.save_dir
+def detect(args, device):
+    save_dir = args.save_dir
     save_dir.mkdir(parents=True, exist_ok=True)  # make dir
     
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model
-    model = get_net()
-    checkpoint = torch.load(opt.weights, map_location= device)
+    model = get_net(args.cfg)
+    checkpoint = torch.load(args.weights, map_location= device)
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
     if half:
         model.half()  # to FP16
 
     # Set Dataloader
-    if opt.source.isnumeric():
+    if args.source.isnumeric():
         cudnn.benchmark = True  
-        dataset = LoadStreams(opt.source, img_size=opt.img_size)
+        dataset = LoadStreams(args.source, img_size=args.img_size)
         bs = len(dataset)  # batch_size
     else:
-        dataset = LoadImages(opt.source, img_size=opt.img_size)
+        dataset = LoadImages(args.source, img_size=args.img_size)
         bs = 1  # batch_size
 
 
@@ -84,7 +85,7 @@ def detect(opt, device):
     t0 = time.time()
 
     vid_path, vid_writer = None, None
-    img = torch.zeros((1, 3, opt.img_size, opt.img_size), device=device)  
+    img = torch.zeros((1, 3, args.img_size, args.img_size), device=device)  
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  
     model.eval()
 
@@ -107,8 +108,8 @@ def detect(opt, device):
 
         # Apply NMS
         t3 = time_synchronized()
-        det_pred = non_max_suppression(inf_out, conf_thres=opt.conf_thres, 
-                                        iou_thres=opt.iou_thres, classes=None, 
+        det_pred = non_max_suppression(inf_out, conf_thres=args.conf_thres, 
+                                        iou_thres=args.iou_thres, classes=None, 
                                         agnostic=False)
         t4 = time_synchronized()
 
@@ -172,7 +173,7 @@ def detect(opt, device):
             cv2.imshow('image', img_det)
             cv2.waitKey(1)  # 1 millisecond
 
-    print('Results saved to %s' % Path(opt.save_dir))
+    print('Results saved to %s' % Path(args.save_dir))
     print('Done. (%.3fs)' % (time.time() - t0))
     print('inf : (%.4fs/frame)   nms : (%.4fs/frame)' % (inf_time.avg,nms_time.avg))
 
@@ -185,6 +186,8 @@ if __name__ == '__main__':
                             help='log directory')
     parser.add_argument('--weights', type=str, default='weights/epoch-116.pth', 
                                                     help='model.pth path(s)')
+    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
+                                                    help='model.yaml path')
     parser.add_argument('--source', type=str, default='inference/videos', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
@@ -201,10 +204,10 @@ if __name__ == '__main__':
                                                 help='directory to save results')
     parser.add_argument('--augment', action='store_true',help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
-    opt = parser.parse_args()
+    args = parser.parse_args()
 
-    device = select_device(opt.device)
+    device = select_device(args.device)
 
-    opt.save_dir = increment_path(Path(opt.logDir)/ opt.dataset)  # increment run
+    args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
     with torch.no_grad():
-        detect(opt, device)
+        detect(args, device)

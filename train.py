@@ -20,10 +20,10 @@ from torch.cuda import amp
 from test import AverageMeter, test
 from utils.autoanchor import check_anchors
 from models.YOLOP import get_net
+from utils.loss import get_loss
 from utils.datasets import create_dataloader
 from utils.general import colorstr, set_logging, increment_path, write_log, val_tensorboard
 from utils.metrics import fitness
-from utils.loss import get_loss
 from utils.torch_utils import select_device
 
 
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 def main(args, hyp, device, writer):
-    logger.info(colorstr('hyperparameters: ') + ', '\
+    logger.info(colorstr('hyperparameter: ') + ', '\
                                 .join(f'{k}={v}' for k, v in hyp.items()))
     save_dir, maxEpochs = Path(args.save_dir), args.epochs
     begin_epoch = 0 
@@ -52,18 +52,17 @@ def main(args, hyp, device, writer):
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
     results_file = save_dir / 'results.txt'
 
-    # Save run settings
+        # Save run settings
     with open(save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
     with open(save_dir / 'args.yaml', 'w') as f:
         yaml.dump(vars(args), f, sort_keys=False)
-
   
 
 
     # build up model
     print("begin to build up model...")
-    model = get_net().to(device)
+    model = get_net(args.cfg).to(device)
 
 
     # loss function 
@@ -74,12 +73,12 @@ def main(args, hyp, device, writer):
     if hyp['optimizer'] == 'sgd':
         optimizer = torch.optim.SGD(
             filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-            momentum=hyp['momentum'],weight_decay=hyp['wd'],
-            nesterov=hyp['nesterov'])
+                                momentum=hyp['momentum'], weight_decay=hyp['wd'],
+                                nesterov=hyp['nesterov'])
     elif hyp['optimizer'] == 'adam':
         optimizer = torch.optim.Adam(
             filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-            betas=(hyp['momentum'], 0.999))
+                                                betas=(hyp['momentum'], 0.999))
 
     print("finish build model")
 
@@ -126,6 +125,7 @@ def main(args, hyp, device, writer):
     # training
     num_warmup = max(round(hyp['warmup_epochs'] * num_batch), 1000)
     scaler = amp.GradScaler(enabled=device.type != 'cpu')
+    
     print('=> start training...')
     global_steps = 0
     for epoch in range(begin_epoch, maxEpochs):
@@ -165,7 +165,6 @@ def main(args, hyp, device, writer):
             with amp.autocast(enabled=device.type != 'cpu'):
                 outputs = model(input)
                 total_loss, head_losses = criterion(outputs, target, shapes,model)
-                # print(head_losses)
 
             # compute gradient and do update step
             optimizer.zero_grad()
@@ -244,14 +243,13 @@ def parse_args():
     parser.add_argument('--hyp', type=str, 
                             default='lib/data/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
+                                            help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
-    parser.add_argument('--epochs', type=int, default=300)
-
     parser.add_argument('--saveJson', type=bool, default=False)
     parser.add_argument('--saveTxt', type=bool, default=False)
     parser.add_argument('--allplot', type=bool, default=False)
-
     parser.add_argument('--auto_resume', type=bool, default=False,
                             help='Resume from the last training interrupt')
     parser.add_argument('--need_autoanchor', type=bool, default=False,
@@ -260,14 +258,11 @@ def parse_args():
                                     set it to be true!')
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--epochs', type=int, default=300)
     parser.add_argument('--train_batch_size', type=int, default=11, 
                             help='total batch size for all GPUs')
     parser.add_argument('--test_batch_size', type=int, default=11, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
-                            help='[train, test] image sizes')
-    parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 
-                            help='[train, test] original image sizes')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
     parser.add_argument('--name', default='exp', 
@@ -302,6 +297,10 @@ def parse_args():
                             help='IOU threshold for NMS')
     parser.add_argument('--dataFormat', type=str, default='jpg', 
                             help='Data Format')
+    parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
+                            help='[train, test] image sizes')
+    parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 
+                            help='[train, test] original image sizes')
 
     parser.add_argument('--pretrain', type=str, default='', 
                             help='all branch pretrain')
