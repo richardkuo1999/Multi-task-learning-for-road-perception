@@ -6,17 +6,20 @@ Project Description
 
 ### Todo
 
+- [ ] build up model method chage to yolov7 type  
 - [ ] val image result fix  
-- [ ] change Backbone  
 - [ ] data process  
 - [ ] let Lane Line  Segment Head can be classified  
 
 ### In Progress
 
-- [ ] code refactoring  
+- [ ] change Backbone  
+- [ ] change neek to YOLOv7  
+- [ ] change object detation head to YOLOv7  
 
 ### Done ✓
 
-- [x] add tensorboard  
-- [x] train the baseline  
+- [x] 11/30 code refactoring  
+- [x] 11/30 add tensorboard  
+- [x] 11/30 train the baseline  
 

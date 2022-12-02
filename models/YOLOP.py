@@ -14,7 +14,7 @@ sys.path.append(BASE_DIR)
 from lib.utils import initialize_weights
 # from lib.models.common2 import DepthSeperabelConv2d as Conv
 # from lib.models.common2 import SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect
-from models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv
+from models.common import MP, Conv, SPP, SPPCSPC, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv
 from torch.nn import Upsample
 from utils.autoanchor import check_anchor_order
 from lib.core.evaluate import SegmentationMetric
@@ -69,10 +69,16 @@ class MCnet(nn.Module):
         det_out = None
         Da_fmap = []
         LL_fmap = []
+        # print(x.size())
         for i, block in enumerate(self.model):
+            # print(block)
             if block.from_ != -1:
                 x = cache[block.from_] if isinstance(block.from_, int) else [x if j == -1 else cache[j] for j in block.from_]       #calculate concat detect
             x = block(x)
+            # try:
+            #     print(x.size())
+            # except:
+            #     pass
             if i in self.seg_out_idx:     #save driving area segment result
                 m=nn.Sigmoid()
                 out.append(m(x))
@@ -97,7 +103,7 @@ class MCnet(nn.Module):
 def parse_model(cfg):
     for i, (f, m, args) in enumerate(cfg):
         cfg[i][-2] = eval(m) if isinstance(m, str) else m
-        if isinstance(cfg[i][-1], list):
+        if isinstance(cfg[i][-1], list) and len(cfg[i][-1]) > 0:
             cfg[i][-1][0] = None if cfg[i][-1][0] == 'None' else cfg[i][-1][0]
     return cfg
 
@@ -107,8 +113,7 @@ def get_net(cfg, **kwargs):
         cfg = yaml.load(f, Loader=yaml.SafeLoader)  # load cfg
 
     m_block_cfg = parse_model(cfg['YOLOP'])
-    model = MCnet(m_block_cfg, **kwargs)
-    return model
+    return MCnet(m_block_cfg, **kwargs)
 
 
 if __name__ == "__main__":

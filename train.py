@@ -63,7 +63,7 @@ def main(args, hyp, device, writer):
 
     # build up model
     print("begin to build up model...")
-    # model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
+    # model = Model(args.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     model = get_net(args.cfg).to(device)
 
 
@@ -261,9 +261,9 @@ def parse_args():
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--train_batch_size', type=int, default=11, 
+    parser.add_argument('--train_batch_size', type=int, default=5, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--test_batch_size', type=int, default=11, 
+    parser.add_argument('--test_batch_size', type=int, default=17, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
@@ -278,20 +278,20 @@ def parse_args():
                             help='start do validation')
     parser.add_argument('--val_freq', type=int, default=1, 
                             help='How many epochs do one time validation')
-    # dataset
+    # dataset   BDD100k_10k
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
     parser.add_argument('--dataRoot', type=str, 
-                    default='F:/dataset/BDD/bdd100k_images_10k/bdd100k/images/10k', 
+                    default='F:/dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
                             help='the path of images folder')
     parser.add_argument('--labelRoot', type=str, 
-                    default='F:/dataset/BDD/labels/10k', 
+                    default='F:/dataset/BDD100k_10k/labels/10k', 
                             help='the path of det_annotations folder')
     parser.add_argument('--maskRoot', type=str, 
-                    default='F:/dataset/BDD/labels/bdd_seg_gt', 
+                    default='F:/dataset/BDD100k_10k/labels/bdd_seg_gt', 
                             help='the path of da_seg_annotations folder')
     parser.add_argument('--laneRoot', type=str, 
-                    default='F:/dataset/BDD/labels/bdd_lane_gt', 
+                    default='F:/dataset/BDD100k_10k/labels/bdd_lane_gt', 
                             help='the path of ll_seg_annotations folder')
     parser.add_argument('--trainSet', type=str, default='train', 
                             help='IOU threshold for NMS')
