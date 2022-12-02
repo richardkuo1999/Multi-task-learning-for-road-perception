@@ -88,7 +88,10 @@ class Conv(nn.Module):
         super(Conv, self).__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        try:
+            self.act = Hardswish() if act else nn.Identity()
+        except:
+            self.act = nn.Identity()
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))
@@ -155,11 +158,15 @@ class Focus(nn.Module):
 
 
 class Concat(nn.Module):
+    # Concatenate a list of tensors along dimension
     def __init__(self, dimension=1):
         super(Concat, self).__init__()
         self.d = dimension
 
     def forward(self, x):
+        """ print("***********************")
+        for f in x:
+            print(f.shape) """
         return torch.cat(x, self.d)
 
 

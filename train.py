@@ -17,9 +17,10 @@ import torch.backends.cudnn
 from torch.cuda import amp
 
 
+
+from models.YOLOP import get_net
 from test import AverageMeter, test
 from utils.autoanchor import check_anchors
-from models.YOLOP import get_net
 from utils.loss import get_loss
 from utils.datasets import create_dataloader
 from utils.general import colorstr, set_logging, increment_path, write_log, val_tensorboard
@@ -62,6 +63,7 @@ def main(args, hyp, device, writer):
 
     # build up model
     print("begin to build up model...")
+    # model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     model = get_net(args.cfg).to(device)
 
 
@@ -243,7 +245,7 @@ def parse_args():
     parser.add_argument('--hyp', type=str, 
                             default='lib/data/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
-    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/yolop_backbone.yaml', 
                                             help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')

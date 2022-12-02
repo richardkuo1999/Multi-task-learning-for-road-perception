@@ -18,10 +18,10 @@ from lib.core.general import non_max_suppression,check_img_size,scale_coords,\
 
 
 
+from models.YOLOP import get_net
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device
 from utils.general import increment_path, write_log
-from models.YOLOP import get_net
 from utils.loss import get_loss
 
 
