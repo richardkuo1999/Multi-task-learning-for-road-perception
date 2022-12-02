@@ -1,6 +1,5 @@
 import yaml
 import torch
-from torch import tensor
 import torch.nn as nn
 import sys,os
 import math
