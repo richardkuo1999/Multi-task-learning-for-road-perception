@@ -245,7 +245,8 @@ def parse_args():
     parser.add_argument('--hyp', type=str, 
                             default='lib/data/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
-    parser.add_argument('--cfg', type=str, default='cfg/yolop_backbone.yaml', 
+                            # yolop_backbone
+    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
                                             help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
