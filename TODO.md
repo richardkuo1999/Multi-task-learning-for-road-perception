@@ -6,6 +6,9 @@ Project Description
 
 ### Todo
 
+- [ ] change neek to YOLOv7  
+- [ ] change object detation head to YOLOv7  
+- [ ] Set DDP variables  
 - [ ] build up model method chage to yolov7 type  
 - [ ] val image result fix  
 - [ ] EMA model  
@@ -15,8 +18,9 @@ Project Description
 ### In Progress
 
 - [ ] change Backbone  
-- [ ] change neek to YOLOv7  
-- [ ] change object detation head to YOLOv7  
+- [ ] train YOLOP_v7b1  
+- [ ] train YOLOP_v7b2  
+- [ ] train YOLOP_v7btinyb1  
 
 ### Done ✓
 
