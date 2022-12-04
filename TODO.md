@@ -8,6 +8,7 @@ Project Description
 
 - [ ] build up model method chage to yolov7 type  
 - [ ] val image result fix  
+- [ ] EMA model  
 - [ ] data process  
 - [ ] let Lane Line  Segment Head can be classified  
 
