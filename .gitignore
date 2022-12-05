@@ -6,7 +6,10 @@ __pycache__/
 bdd/
 runs/
 inference/
+
 dataset/
+!lib/dataset/
+
 *.pth
 *.pt
 *.tar
