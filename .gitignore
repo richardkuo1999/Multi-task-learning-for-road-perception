@@ -6,6 +6,7 @@ inference/
 
 dataset/
 datasets/
+runs/
 
 *.pth
 *.pt
