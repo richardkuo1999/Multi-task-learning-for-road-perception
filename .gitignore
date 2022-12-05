@@ -8,6 +8,7 @@ runs/
 inference/
 
 dataset/
+datasets/
 !lib/dataset/
 
 *.pth
