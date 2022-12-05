@@ -6,8 +6,6 @@ Project Description
 
 ### Todo
 
-- [ ] change neek to YOLOv7  
-- [ ] change object detation head to YOLOv7  
 - [ ] Set DDP variables  
 - [ ] build up model method chage to yolov7 type  
 - [ ] val image result fix  
@@ -17,14 +15,17 @@ Project Description
 
 ### In Progress
 
-- [ ] change Backbone  
-- [ ] train YOLOP_v7b1  
 - [ ] train YOLOP_v7b2  
-- [ ] train YOLOP_v7btinyb1  
+- [ ] train YOLOP_v7bT1
+- [ ] change object detection head to YOLOv7(v7bT2)
+- [ ] train YOLOP_v7bT2
 
 ### Done ✓
 
-- [x] 11/30 code refactoring  
+- [x] 12/05 change neck to YOLOv7(v7bT2)
+- [x] 12/05 train YOLOP_v7b1
+- [x] 12/02 change Backbone
+- [x] 12/01 code refactoring  
 - [x] 11/30 add tensorboard  
 - [x] 11/30 train the baseline  
 

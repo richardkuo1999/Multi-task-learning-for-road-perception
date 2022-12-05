@@ -13,8 +13,7 @@ sys.path.append(BASE_DIR)
 from lib.utils import initialize_weights
 # from lib.models.common2 import DepthSeperabelConv2d as Conv
 # from lib.models.common2 import SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect
-# from models.common_0ld import  Conv, SPP,  Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv
-from models.common import MP, Conv, SPP, SPPCSPC, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv
+from models.common import MP, Conv, SP, SPP, SPPCSPC, Bottleneck, BottleneckCSP, Focus, Concat, Detect, IDetect, SharpenConv
 from torch.nn import Upsample
 from utils.autoanchor import check_anchor_order
 from lib.core.evaluate import SegmentationMetric
