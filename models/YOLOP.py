@@ -103,7 +103,8 @@ class MCnet(nn.Module):
 def parse_model(cfg):
     for i, (f, m, args) in enumerate(cfg):
         cfg[i][-2] = eval(m) if isinstance(m, str) else m
-        for j in range(len(cfg[i][-1])):
+        if( isinstance(cfg[i][-1], list)):
+            for j in range(len(cfg[i][-1])):
                 cfg[i][-1][j] = None if cfg[i][-1][j] == 'None' else cfg[i][-1][j]
     return cfg
 
