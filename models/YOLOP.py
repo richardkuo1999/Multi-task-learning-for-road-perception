@@ -33,7 +33,8 @@ class MCnet(nn.Module):
         # Build model
         for i, (from_, block, args) in enumerate(block_cfg[1:]):
             block = eval(block) if isinstance(block, str) else block  # eval strings
-            if block is Detect:
+            # print(i,block)
+            if block in [Detect,IDetect]:
                 self.detector_index = i
             block_ = block(*args)
             block_.index, block_.from_ = i, from_
@@ -46,19 +47,20 @@ class MCnet(nn.Module):
 
         # set stride、anchor for detector
         Detector = self.model[self.detector_index]  # detector
-        if isinstance(Detector, Detect):
+        if isinstance(Detector, Detect) or isinstance(Detector, IDetect):
             s = 128  # 2x min stride
             # for x in self.forward(torch.zeros(1, 3, s, s)):
             #     print (x.shape)
-            with torch.no_grad():
-                model_out = self.forward(torch.zeros(1, 3, s, s))
-                detects, _, _= model_out
-                Detector.stride = torch.tensor([s / x.shape[-2] for x in detects])  # forward
+            # with torch.no_grad():
+            model_out = self.forward(torch.zeros(1, 3, s, s))
+            detects, _, _= model_out
+            Detector.stride = torch.tensor([s / x.shape[-2] for x in detects])  # forward
             # print("stride"+str(Detector.stride ))
             Detector.anchors /= Detector.stride.view(-1, 1, 1)  # Set the anchors for the corresponding scale
             check_anchor_order(Detector)
             self.stride = Detector.stride
-            self._initialize_biases()
+            self._initialize_biases()# only run once
+            # print('Strides: %s' % m.stride.tolist())
         
         initialize_weights(self)
 

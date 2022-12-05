@@ -66,7 +66,6 @@ def main(args, hyp, device, writer):
     # model = Model(args.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     model = get_net(args.cfg).to(device)
 
-
     # loss function 
     criterion = get_loss(hyp, device)
 
