@@ -1,17 +1,17 @@
 .DS_Store
 __pycache__/
-.idea/
-.tmp/
 .vscode/
-bdd/
-runs/
+
 inference/
 
 dataset/
 datasets/
-!lib/dataset/
 
 *.pth
 *.pt
 *.tar
 *.tar.gz
+*.jpg
+*.png
+
+!lib/dataset/
