@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="9VEvMXJ9LxRkkzzHQIz1" name="YOLOP">
-        <mxGraphModel dx="2261" dy="1453" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+        <mxGraphModel dx="4809" dy="2914" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -3138,7 +3138,7 @@
                 <mxCell id="RvFR8-yYicMkpyYpa5ax-966" style="edgeStyle=none;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;fontSize=10;fontColor=#FFFFFF;strokeColor=#000000;strokeWidth=3;" parent="RvFR8-yYicMkpyYpa5ax-619" source="RvFR8-yYicMkpyYpa5ax-888" target="RvFR8-yYicMkpyYpa5ax-920" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="RvFR8-yYicMkpyYpa5ax-967" value="&lt;h1&gt;&lt;b&gt;&lt;font style=&quot;font-size: 48px&quot; color=&quot;#000000&quot;&gt;YOLOP_v7v2&lt;/font&gt;&lt;/b&gt;&lt;/h1&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E56C03;fontSize=19;fontStyle=0" parent="1" vertex="1">
+                <mxCell id="RvFR8-yYicMkpyYpa5ax-967" value="&lt;h1&gt;&lt;b&gt;&lt;font style=&quot;font-size: 48px&quot; color=&quot;#000000&quot;&gt;YOLOP_v7b2&lt;/font&gt;&lt;/b&gt;&lt;/h1&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E56C03;fontSize=19;fontStyle=0" parent="1" vertex="1">
                     <mxGeometry x="3151.38" y="1420" width="560" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="RvFR8-yYicMkpyYpa5ax-968" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=48;fontColor=#000000;strokeColor=#000000;strokeWidth=3;" parent="1" source="RvFR8-yYicMkpyYpa5ax-969" target="RvFR8-yYicMkpyYpa5ax-974" edge="1">
@@ -5496,7 +5496,7 @@
                 <mxCell id="fa_gonGlw0AWCGku7J_1-656" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#000000;strokeWidth=3;" parent="1" source="fa_gonGlw0AWCGku7J_1-491" target="fa_gonGlw0AWCGku7J_1-654" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="339" value="&lt;span style=&quot;color: rgb(0 , 0 , 0) ; font-size: 14px&quot;&gt;80*80*128&lt;/span&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;labelBackgroundColor=none;fontSize=19;fontColor=#FF0000;fontStyle=1" vertex="1" parent="1">
+                <mxCell id="339" value="&lt;span style=&quot;color: rgb(0 , 0 , 0) ; font-size: 14px&quot;&gt;80*80*128&lt;/span&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;labelBackgroundColor=none;fontSize=19;fontColor=#FF0000;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="5180.4" y="2325.73" width="60" height="30" as="geometry"/>
                 </mxCell>
             </root>
