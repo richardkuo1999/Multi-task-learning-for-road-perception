@@ -6,26 +6,31 @@ Project Description
 
 ### Todo
 
-- [ ] resume weights
-- [ ] multi gpu 
-- [ ] build up model method change to YOLOv7 type
-- [ ] val image result fix  
+- [ ] resume weights(all weight and not part)  
+- [ ] multi gpu  
+- [ ] build up model method change to YOLOv7 type  
+- [ ] val image output modify  
 - [ ] EMA model  
 - [ ] data process  
 - [ ] let Lane Line  Segment Head can be classified  
+- [ ] modify Loss function
 
 ### In Progress
 
-- [ ] train YOLOP_v7b2  
-- [ ] train YOLOP_v7bT1
-- [ ] train YOLOP_v7bT2
+- [ ] train YOLOP_v7bT1  
+- [ ] train YOLOP_v7bT2  
+- [ ] train YOLOP_v7b3  
 
 ### Done ✓
 
-- [x] 12/05 change object detection head to YOLOv7(v7bT2)
-- [x] 12/05 change neck to YOLOv7(v7bT2)
-- [x] 12/05 train YOLOP_v7b1
-- [x] 12/02 change Backbone
+- [x] 12/06  change object detection head to YOLOv7(v7b3)  
+- [x] 12/06  change neck to YOLOv7(v7b3) 
+- [x] 12/06 train YOLOP_v7b2  
+- [x] 12/05 change object detection head to YOLOv7 tiny(v7bT2)  
+- [x] 12/05 change neck to YOLOv7 tiny(v7bT2)  
+- [x] 12/05 train YOLOP_v7b1  
+- [x] 12/02 change Backbone yolov7 tiny
+- [x] 12/02 change Backbone yolov7 
 - [x] 12/01 code refactoring  
 - [x] 11/30 add tensorboard  
 - [x] 11/30 train the baseline  
