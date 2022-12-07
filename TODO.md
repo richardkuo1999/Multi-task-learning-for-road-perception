@@ -17,12 +17,12 @@ Project Description
 
 ### In Progress
 
-- [ ] train YOLOP_v7bT1  
 - [ ] train YOLOP_v7bT2  
 - [ ] train YOLOP_v7b3  
 
 ### Done ✓
 
+- [x] 12/07 train YOLOP_v7bT1  
 - [x] 12/06  change "neck & object detection head" to YOLOv7(v7b3)  
 - [x] 12/06 train YOLOP_v7b2  
 - [x] 12/05 change "neck & object detection head" to YOLOv7 tiny(v7bT2)  
