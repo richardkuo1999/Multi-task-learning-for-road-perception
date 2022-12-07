@@ -129,7 +129,7 @@ def main(args, hyp, device, writer):
     
     print('=> start training...')
     global_steps = 0
-    for epoch in range(begin_epoch, maxEpochs):
+    for epoch in range(begin_epoch, maxEpochs+1):
 
         model.train()
         start = time.time()
