@@ -13,7 +13,7 @@ sys.path.append(BASE_DIR)
 from lib.utils import initialize_weights
 # from lib.models.common2 import DepthSeperabelConv2d as Conv
 # from lib.models.common2 import SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect
-from models.common import MP, Conv, SP, SPP, SPPCSPC, Bottleneck, BottleneckCSP, Focus, Concat, Detect, IDetect, SharpenConv
+from models.common import MP, Conv, SP, SPP, SPPCSPC, Bottleneck, BottleneckCSP, Focus, Concat, Detect, RepConv, IDetect, SharpenConv
 from torch.nn import Upsample
 from utils.autoanchor import check_anchor_order
 from lib.core.evaluate import SegmentationMetric
@@ -32,8 +32,8 @@ class MCnet(nn.Module):
 
         # Build model
         for i, (from_, block, args) in enumerate(block_cfg[1:]):
+            # print(i, block)
             block = eval(block) if isinstance(block, str) else block  # eval strings
-            # print(i,block)
             if block in [Detect,IDetect]:
                 self.detector_index = i
             block_ = block(*args)
@@ -72,7 +72,7 @@ class MCnet(nn.Module):
         LL_fmap = []
         # print(x.size())
         for i, block in enumerate(self.model):
-            # print(block)
+            # print(i, block)
             if block.from_ != -1:
                 x = cache[block.from_] if isinstance(block.from_, int) else [x if j == -1 else cache[j] for j in block.from_]       #calculate concat detect
             x = block(x)
