@@ -263,7 +263,7 @@ def parse_args():
     parser.add_argument('--epochs', type=int, default=300)
     parser.add_argument('--train_batch_size', type=int, default=30, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--test_batch_size', type=int, default=40, 
+    parser.add_argument('--test_batch_size', type=int, default=30, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
@@ -282,16 +282,16 @@ def parse_args():
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
     parser.add_argument('--dataRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
+                    default='./dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
                             help='the path of images folder')
     parser.add_argument('--labelRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k/labels/10k', 
+                    default='./dataset/BDD100k_10k/labels/10k', 
                             help='the path of det_annotations folder')
     parser.add_argument('--maskRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k/labels/bdd_seg_gt', 
+                    default='./dataset/BDD100k_10k/labels/bdd_seg_gt', 
                             help='the path of da_seg_annotations folder')
     parser.add_argument('--laneRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k/labels/bdd_lane_gt', 
+                    default='./dataset/BDD100k_10k/labels/bdd_lane_gt', 
                             help='the path of ll_seg_annotations folder')
     parser.add_argument('--trainSet', type=str, default='train', 
                             help='IOU threshold for NMS')
