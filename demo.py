@@ -175,7 +175,7 @@ def detect(args, device):
     print('Results saved to %s' % Path(args.save_dir))
     print('Done. (%.3f s)' % (time.time() - t0))
     print('inf : (%.4f s/frame)   nms : (%.4fs/frame)' % (inf_time.avg,nms_time.avg))
-    print('fps : (%d frame/s)' % (1/(inf_time.avg+nms_time.avg)))
+    print('fps : (%.4f frame/s)' % (1/(inf_time.avg+nms_time.avg)))
 
 
 
