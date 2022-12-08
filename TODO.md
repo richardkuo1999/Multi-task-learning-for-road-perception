@@ -22,7 +22,7 @@ Project Description
 
 ### Done ✓
 
-- [x] 12/08resume weights(all weight and not part)  
+- [x] 12/08 resume weights(all weight and not part)  
 - [x] 12/07 train YOLOP_v7bT1  
 - [x] 12/06  change "neck & object detection head" to YOLOv7(v7b3)  
 - [x] 12/06 train YOLOP_v7b2  
