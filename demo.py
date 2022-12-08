@@ -19,7 +19,7 @@ from lib.core.postprocess import morphological_process, connect_lane
 
 
 from models.YOLOP import get_net
-from utils.general import increment_path
+from utils.general import increment_path, write_log
 from utils.torch_utils import select_device
 
 
@@ -53,8 +53,9 @@ transform=transforms.Compose([
 
 def detect(args, device):
     save_dir = args.save_dir
+
     save_dir.mkdir(parents=True, exist_ok=True)  # make dir
-    
+    results_file = save_dir / 'results.txt'
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model
@@ -172,11 +173,17 @@ def detect(args, device):
             cv2.imshow('image', img_det)
             cv2.waitKey(1)  # 1 millisecond
 
-    print('Results saved to %s' % Path(args.save_dir))
-    print('Done. (%.3f s)' % (time.time() - t0))
-    print('inf : (%.4f s/frame)   nms : (%.4fs/frame)' % (inf_time.avg,nms_time.avg))
-    print('fps : (%.4f frame/s)' % (1/(inf_time.avg+nms_time.avg)))
-
+    # print('Results saved to %s' % Path(args.save_dir))
+    # print('Done. (%.3f s)' % (time.time() - t0))
+    # print('inf : (%.4f s/frame)   nms : (%.4fs/frame)' % (inf_time.avg,nms_time.avg))
+    # print('fps : (%.4f frame/s)' % (1/(inf_time.avg+nms_time.avg)))
+    msg = f'{str(args.weights)} , {str(args.cfg)}\n'+\
+          f'Results saved to {str(args.save_dir)}\n'+\
+          f'Done. ({(time.time() - t0)} s)\n'+\
+          f'inf : ({inf_time.avg} s/frame)   nms : ({nms_time.avg}s/frame)\n'+\
+          f'fps : ({(1/(inf_time.avg+nms_time.avg))} frame/s)'
+    print(msg)
+    write_log(results_file, msg)
 
 
 
@@ -188,7 +195,7 @@ if __name__ == '__main__':
                                                     help='model.pth path(s)')
     parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--source', type=str, default='inference/videos', 
+    parser.add_argument('--source', type=str, default='inference/images', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
@@ -207,6 +214,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     device = select_device(args.device)
+    
+    # test_yaml = ['cfg/yolop.yaml','cfg/yolop.yaml','cfg/YOLOP_v7b1.yaml','cfg/YOLOP_v7b2.yaml','cfg/YOLOP_v7bT1.yaml','cfg/yolop.yaml']
+    # test_weight = ['weights/epoch-240.pth','weights/epoch-116.pth','weights/epoch-280.pth','weights/epoch-200.pth','weights/epoch-295.pth','weights/epoch-182.pth',]
+    # for i, test_file in enumerate(zip(test_yaml,test_weight)):
+    #     print(i, test_file[0],test_file[1])
+    #     args.cfg = test_file[0]
+    #     args.weights = test_file[1]
+        
+    #     args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
+    #     with torch.no_grad():
+    #         detect(args, device)
 
     args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
     with torch.no_grad():
