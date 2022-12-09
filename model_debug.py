@@ -176,15 +176,10 @@ def parse_args():
                             default='lib/data/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
                                             help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
-    parser.add_argument('--saveJson', type=bool, default=False)
-    parser.add_argument('--saveTxt', type=bool, default=False)
-    parser.add_argument('--allplot', type=bool, default=False)
-    parser.add_argument('--resume', type=str, default='',
-                            help='Resume the weight  runs/train/BddDataset/')
     parser.add_argument('--need_autoanchor', type=bool, default=False,
                             help='Re-select the prior anchor(k-means) \
                                     When training from scratch (epoch=0), \
@@ -192,41 +187,28 @@ def parse_args():
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--train_batch_size', type=int, default=30, 
-                            help='total batch size for all GPUs')
-    parser.add_argument('--test_batch_size', type=int, default=40, 
+    parser.add_argument('--train_batch_size', type=int, default=5, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
-    parser.add_argument('--name', default='exp', 
-                            help='save to project/name')
-    parser.add_argument('--conf_thres', type=float, default=0.001,
-                            help='object confidence threshold')
-    parser.add_argument('--iou_thres', type=float, default=0.6, 
-                            help='IOU threshold for NMS')
+
     parser.add_argument('--num_seg_class', type=int, default=2)
-    parser.add_argument('--val_start', type=int, default=20, 
-                            help='start do validation')
-    parser.add_argument('--val_freq', type=int, default=5, 
-                            help='How many epochs do one time validation')
     # dataset   BDD100k_10k
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
     parser.add_argument('--dataRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
+                    default='./dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
                             help='the path of images folder')
     parser.add_argument('--labelRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k/labels/10k', 
+                    default='./dataset/BDD100k_10k/labels/10k', 
                             help='the path of det_annotations folder')
     parser.add_argument('--maskRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k/labels/bdd_seg_gt', 
+                    default='./dataset/BDD100k_10k/labels/bdd_seg_gt', 
                             help='the path of da_seg_annotations folder')
     parser.add_argument('--laneRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k/labels/bdd_lane_gt', 
+                    default='./dataset/BDD100k_10k/labels/bdd_lane_gt', 
                             help='the path of ll_seg_annotations folder')
     parser.add_argument('--trainSet', type=str, default='train', 
-                            help='IOU threshold for NMS')
-    parser.add_argument('--testSet', type=str, default='val', 
                             help='IOU threshold for NMS')
     parser.add_argument('--dataFormat', type=str, default='jpg', 
                             help='Data Format')
@@ -234,12 +216,6 @@ def parse_args():
                             help='[train, test] image sizes')
     parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 
                             help='[train, test] original image sizes')
-
-    parser.add_argument('--pretrain', type=str, default='', 
-                            help='all branch pretrain')
-    parser.add_argument('--pretrain_det', type=str, default='', 
-                            help='detection branch pretrain')
-   
     # Cudnn related params
     parser.add_argument('--cudnn_benchmark', type=bool, default=True,  
                                 help='Use GPUs to speed up network training')
@@ -270,8 +246,7 @@ if __name__ == '__main__':
               'enc_seg_only':ENC_SEG_ONLY, 'enc_det_only':ENC_DET_ONLY,
               'drivable_only':DRIVABLE_ONLY, 'lane_only':LANE_ONLY,
               'det_only':DET_ONLY})
- 
-    args.save_dir = increment_path(Path(args.logDir)/ args.dataset) 
+    args.save_dir = increment_path(Path(args.logDir)/ args.dataset / args.cfg.split('.')[0]) 
     print(args.save_dir)
 
     # Train
