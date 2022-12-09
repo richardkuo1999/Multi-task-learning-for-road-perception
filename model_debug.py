@@ -117,6 +117,9 @@ def main(args, hyp, device):
 
     model.train()
     prof = torch.profiler.profile(
+        activities=[
+        torch.profiler.ProfilerActivity.CPU,
+        torch.profiler.ProfilerActivity.CUDA],
         schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(save_dir),
         record_shapes=True,
@@ -187,9 +190,9 @@ def parse_args():
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--train_batch_size', type=int, default=5, 
+    parser.add_argument('--train_batch_size', type=int, default=90, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--workers', type=int, default=0, 
+    parser.add_argument('--workers', type=int, default=1, 
                             help='maximum number of dataloader workers')
 
     parser.add_argument('--num_seg_class', type=int, default=2)
