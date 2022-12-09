@@ -9,12 +9,9 @@ from tqdm import tqdm
 from pathlib import Path
 from tensorboardX import SummaryWriter
 
-
 import torch
 import torch.optim
-# import torch.profiler
 import torch.utils.data
-import torch.nn.parallel
 import torch.backends.cudnn
 from torch.cuda import amp
 
@@ -56,7 +53,7 @@ def main(args, hyp, device, writer):
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
     results_file = save_dir / 'results.txt'
 
-        # Save run settings
+    # Save run settings
     with open(save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
     with open(save_dir / 'args.yaml', 'w') as f:
