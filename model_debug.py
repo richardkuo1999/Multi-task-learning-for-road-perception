@@ -122,8 +122,8 @@ def main(args, hyp, device):
         torch.profiler.ProfilerActivity.CUDA],
         schedule=torch.profiler.schedule(wait=1, warmup=1, active=3, repeat=2),
         on_trace_ready=torch.profiler.tensorboard_trace_handler(save_dir),
-        record_shapes=True,
-        with_stack=True)
+        record_shapes=True, profile_memory =True, with_flops =True,
+        with_modules =True, with_stack=True)
     prof.start()
     for i, (input, target, paths, shapes) in enumerate(train_loader):
         print(i)
