@@ -5,12 +5,14 @@ import time
 import argparse
 import logging
 import numpy as np
+from tqdm import tqdm
 from pathlib import Path
 from tensorboardX import SummaryWriter
 
 
 import torch
 import torch.optim
+# import torch.profiler
 import torch.utils.data
 import torch.nn.parallel
 import torch.backends.cudnn
@@ -18,7 +20,7 @@ from torch.cuda import amp
 
 
 
-from models.YOLOP import get_net
+from models.YOLOP import get_net, get_optimizer
 from test import AverageMeter, test
 from utils.autoanchor import check_anchors
 from utils.loss import get_loss
@@ -47,6 +49,7 @@ def main(args, hyp, device, writer):
                                 .join(f'{k}={v}' for k, v in hyp.items()))
     save_dir, maxEpochs = Path(args.save_dir), args.epochs
     begin_epoch = 0 
+    global_steps = 0
 
     # Directories
     wdir = save_dir / 'weights'
@@ -69,18 +72,19 @@ def main(args, hyp, device, writer):
     # loss function 
     criterion = get_loss(hyp, device)
 
-
     # Optimizer
-    if hyp['optimizer'] == 'sgd':
-        optimizer = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-                                momentum=hyp['momentum'], weight_decay=hyp['wd'],
-                                nesterov=hyp['nesterov'])
-    elif hyp['optimizer'] == 'adam':
-        optimizer = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-                                                betas=(hyp['momentum'], 0.999))
+    optimizer = get_optimizer(hyp, model)                               
 
+    # resume 
+    if(args.resume):
+        checkpoint = torch.load(args.resume)
+        begin_epoch = checkpoint['epoch']
+        model.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        global_steps = checkpoint['global_steps']+1
+        msg = f'=> loaded checkpoint "{args.resume}"(epoch {begin_epoch})'
+        logger.info(msg)
+        write_log(results_file, msg)
     print("finish build model")
 
 
@@ -128,7 +132,6 @@ def main(args, hyp, device, writer):
     scaler = amp.GradScaler(enabled=device.type != 'cpu')
     
     print('=> start training...')
-    global_steps = 0
     for epoch in range(begin_epoch, maxEpochs+1):
 
         model.train()
@@ -151,7 +154,7 @@ def main(args, hyp, device, writer):
                     # all other lrs rise from 0.0 to lr0
                     x['lr'] = np.interp(num_iter, xi, [hyp['warmup_biase_lr'] \
                                         if j == 2 else 0.0, x['initial_lr'] *\
-                                                                 lf(epoch)])
+                                                                lf(epoch)])
                     if 'momentum' in x:
                         x['momentum'] = np.interp(num_iter, xi, 
                                                 [hyp['warmup_momentum'], 
@@ -194,9 +197,8 @@ def main(args, hyp, device, writer):
                 writer.add_scalar('train_loss', losses.val, global_steps)
                 global_steps += 1
 
-
         lr_scheduler.step()
-
+        
         # evaluate on validation set
         if (epoch > args.val_start and (epoch % args.val_freq == 0 
                                                     or epoch == maxEpochs)):
@@ -229,6 +231,7 @@ def main(args, hyp, device, writer):
                 # 'best_state_dict': model.module.state_dict(),
                 # 'perf': perf_indicator,
                 'optimizer': optimizer.state_dict(),
+                'global_steps':global_steps-1,
             }
             torch.save(ckpt, savepath)
             del ckpt
@@ -245,15 +248,15 @@ def parse_args():
                             default='lib/data/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP.yaml', 
                                             help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
     parser.add_argument('--saveJson', type=bool, default=False)
     parser.add_argument('--saveTxt', type=bool, default=False)
     parser.add_argument('--allplot', type=bool, default=False)
-    parser.add_argument('--auto_resume', type=bool, default=False,
-                            help='Resume from the last training interrupt')
+    parser.add_argument('--resume', type=str, default='',
+                            help='Resume the weight  runs/train/BddDataset/')
     parser.add_argument('--need_autoanchor', type=bool, default=False,
                             help='Re-select the prior anchor(k-means) \
                                     When training from scratch (epoch=0), \
@@ -340,8 +343,13 @@ if __name__ == '__main__':
                 'drivable_only':DRIVABLE_ONLY, 'lane_only':LANE_ONLY,
                 'det_only':DET_ONLY})
 
-
-    args.save_dir = increment_path(Path(args.logDir)/ args.dataset) 
+    if(args.resume):
+        args.save_dir = Path('./')
+        for p in args.resume.split('/')[:-2]:
+            args.save_dir= args.save_dir / p
+    else:
+        args.save_dir = increment_path(Path(args.logDir)/ args.dataset) 
+    print(args.save_dir)
 
     # Train
     logger.info(args)
@@ -349,6 +357,7 @@ if __name__ == '__main__':
     logger.info(f"{prefix}Start with 'tensorboard --logdir {args.logDir}'"+\
                                         ", view at http://localhost:6006/")
     writer = SummaryWriter(args.save_dir)  # Tensorboard
+    
     main(args, hyp, device, writer)
  
 

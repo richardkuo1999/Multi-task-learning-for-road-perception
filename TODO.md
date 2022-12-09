@@ -6,22 +6,23 @@ Project Description
 
 ### Todo
 
-- [ ] resume weights(all weight and not part)  
-- [ ] multi gpu  
-- [ ] build up model method change to YOLOv7 type  
-- [ ] val image output modify  
-- [ ] EMA model  
 - [ ] data process  
 - [ ] let Lane Line  Segment Head can be classified  
 - [ ] modify Loss function  
+- [ ] build up model method change to YOLOv7 type  
+- [ ] EMA model  
+- [ ] multi gpu  
 
 ### In Progress
 
-- [ ] train YOLOP_v7bT2  
-- [ ] train YOLOP_v7b3  
+- [ ] Add profiler  
 
 ### Done ✓
 
+- [x] 12/09 level up Pytorch and deal with the vision bug  
+- [x] 12/08 train YOLOP_v7b3  
+- [x] 12/08 train YOLOP_v7bT2  
+- [x] 12/08 resume weights(all weight and not part)  
 - [x] 12/07 train YOLOP_v7bT1  
 - [x] 12/06  change "neck & object detection head" to YOLOv7(v7b3)  
 - [x] 12/06 train YOLOP_v7b2  

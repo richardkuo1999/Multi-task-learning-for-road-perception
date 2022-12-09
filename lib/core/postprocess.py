@@ -42,7 +42,6 @@ def build_targets(hyp, predictions, targets, model):
         gain[2:6] = torch.tensor(predictions[i].shape)[[3, 2, 3, 2]]  # xyxy gain
         # Match targets to anchors
         t = targets * gain
-
         if nt:
             # Matches
             r = t[:, :, 4:6] / anchors[:, None]  # wh ratio
@@ -71,7 +70,8 @@ def build_targets(hyp, predictions, targets, model):
 
         # Append
         a = t[:, 6].long()  # anchor indices
-        indices.append((b, a, gj.clamp_(0, gain[3] - 1), gi.clamp_(0, gain[2] - 1)))  # image, anchor, grid indices
+
+        indices.append((b, a, gj.clamp_(0, gain[3].type(torch.int64) - 1), gi.clamp_(0, gain[2].type(torch.int64) - 1)))  # image, anchor, grid indices
         tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
         anch.append(anchors[a])  # anchors
         tcls.append(c)  # class

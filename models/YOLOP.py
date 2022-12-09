@@ -118,6 +118,19 @@ def get_net(cfg, **kwargs):
     return MCnet(m_block_cfg, **kwargs)
 
 
+def get_optimizer(hyp, model):
+    if hyp['optimizer'] == 'sgd':
+        optimizer = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
+                                momentum=hyp['momentum'], weight_decay=hyp['wd'],
+                                nesterov=hyp['nesterov'])
+    elif hyp['optimizer'] == 'adam':
+        optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
+                                                betas=(hyp['momentum'], 0.999))   
+    return optimizer
+
+
 if __name__ == "__main__":
     # from torch.utils.tensorboard import SummaryWriter
     cfg = 'F:\ITRI\YOLOP\cfg\yolop.yaml'
