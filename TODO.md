@@ -6,7 +6,6 @@ Project Description
 
 ### Todo
 
-- [ ] data process  
 - [ ] let Lane Line  Segment Head can be classified  
 - [ ] modify Loss function  
 - [ ] build up model method change to YOLOv7 type  
@@ -15,10 +14,11 @@ Project Description
 
 ### In Progress
 
-- [ ] Add profiler  
+- [ ] data process  
 
 ### Done ✓
 
+- [x] 12/09 Add profiler  
 - [x] 12/09 level up Pytorch and deal with the vision bug  
 - [x] 12/08 train YOLOP_v7b3  
 - [x] 12/08 train YOLOP_v7bT2  
