@@ -6,6 +6,7 @@ Project Description
 
 ### Todo
 
+- [ ] let Lane Line  Segment Head can be classified  
 - [ ] modify Loss function  
 - [ ] build up model method change to YOLOv7 type  
 - [ ] EMA model  
@@ -13,8 +14,8 @@ Project Description
 
 ### In Progress
 
-- [ ] let Lane Line  Segment Head can be classified  
 - [ ] data process  
+- [ ] dataloader multi class  
 
 ### Done ✓
 

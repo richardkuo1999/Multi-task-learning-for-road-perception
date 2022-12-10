@@ -15,7 +15,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as transforms
 
-from utils.general import xyxy2xywh
+from utils.general import xyxy2xywh, convert, clean_str
 
 img_formats = ['.bmp', '.jpg', '.jpeg', '.png', '.tif', '.tiff', '.dng']
 vid_formats = ['.mov', '.avi', '.mp4', '.mpg', '.mpeg', '.m4v', '.wmv', '.mkv']
@@ -54,18 +54,11 @@ def create_dataloader(args, hyp, batch_size, normalize, is_train=True, shuffle=T
     )
     return loader, datasets
 
-def convert(size, box):
-    dw = 1./(size[0])
-    dh = 1./(size[1])
-    x = (box[0] + box[1])/2.0
-    y = (box[2] + box[3])/2.0
-    w = box[1] - box[0]
-    h = box[3] - box[2]
-    x = x*dw
-    w = w*dw
-    y = y*dh
-    h = h*dh
-    return (x,y,w,h)
+class DataLoaderX(DataLoader):
+    """prefetch dataloader"""
+    def __iter__(self):
+        return BackgroundGenerator(super().__iter__())
+
 
 class AutoDriveDataset(Dataset):
     """
@@ -92,10 +85,9 @@ class AutoDriveDataset(Dataset):
         label_root = Path(args.labelRoot)
         mask_root = Path(args.maskRoot)
         lane_root = Path(args.laneRoot)
-        if is_train:
-            indicator = args.trainSet
-        else:
-            indicator = args.testSet
+
+        indicator = args.trainSet if is_train else args.testSet
+
         self.img_root = img_root / indicator
         self.label_root = label_root / indicator
         self.mask_root = mask_root / indicator
@@ -154,12 +146,9 @@ class AutoDriveDataset(Dataset):
         data = self.db[idx]
         img = cv2.imread(data["image"], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # seg_label = cv2.imread(data["mask"], 0)
-        if self.args.num_seg_class == 3:
-            seg_label = cv2.imread(data["mask"])
-        else:
-            seg_label = cv2.imread(data["mask"], 0)
-        lane_label = cv2.imread(data["lane"], 0)
+        seg_label = cv2.imread(data["mask"])
+        lane_label = cv2.imread(data["lane"])
+        # TODO
         # print(lane_label.shape)
         # print(seg_label.shape)
         # print(lane_label.shape)
@@ -252,7 +241,7 @@ class AutoDriveDataset(Dataset):
         # seg_label = np.ascontiguousarray(seg_label)
         # if idx == 0:
         #     print(seg_label[:,:,0])
-
+        # TODO
         if self.args.num_seg_class == 3:
             _,seg0 = cv2.threshold(seg_label[:,:,0],128,255,cv2.THRESH_BINARY)
             _,seg1 = cv2.threshold(seg_label[:,:,1],1,255,cv2.THRESH_BINARY)
@@ -268,6 +257,7 @@ class AutoDriveDataset(Dataset):
         
         # seg_label /= 255
         # seg0 = self.Tensor(seg0)
+        # TODO
         if self.args.num_seg_class == 3:
             seg0 = self.Tensor(seg0)
         seg1 = self.Tensor(seg1)
@@ -276,7 +266,7 @@ class AutoDriveDataset(Dataset):
         # seg2 = self.Tensor(seg2)
         lane1 = self.Tensor(lane1)
         lane2 = self.Tensor(lane2)
-
+        # TODO
         # seg_label = torch.stack((seg2[0], seg1[0]),0)
         if self.args.num_seg_class == 3:
             seg_label = torch.stack((seg0[0],seg1[0],seg2[0]),0)
@@ -561,8 +551,6 @@ class LoadImages:  # for inference
     def __len__(self):
         return self.nf  # number of files
 
-
-
 class LoadStreams:  # multiple IP or RTSP cameras
     def __init__(self, sources='streams.txt', img_size=640, auto=True):
         self.mode = 'stream'
@@ -643,10 +631,6 @@ class LoadStreams:  # multiple IP or RTSP cameras
     def __len__(self):
         return len(self.sources)  # 1E12 frames = 32 streams at 30 FPS for 30 years
 
-class DataLoaderX(DataLoader):
-    """prefetch dataloader"""
-    def __iter__(self):
-        return BackgroundGenerator(super().__iter__())
 
 
 

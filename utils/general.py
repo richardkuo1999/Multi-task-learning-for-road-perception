@@ -38,7 +38,11 @@ def set_logging():
 def write_log(results_file, msg):
     with open(results_file, 'a') as f:
         f.write(msg+'\n')  
-        
+
+def clean_str(s):
+    # Cleans a string by replacing special characters with underscore _
+    return re.sub(pattern="[|@#!¡·$€%&()=?¿^*;:,¨´><+]", repl="_", string=s)
+         
 def colorstr(*input):
     # Colors a string https://en.wikipedia.org/wiki/ANSI_escape_code, i.e.  colorstr('blue', 'hello world')
     *opt, string = input if len(input) > 1 else ('blue', 'bold', input[0])  # color arguments, string
@@ -277,6 +281,21 @@ def xyxy2xywh(x):
     y[:, 2] = x[:, 2] - x[:, 0]  # width
     y[:, 3] = x[:, 3] - x[:, 1]  # height
     return y
+# 280 720 205.879417 281.992413 338.141346 388.051507
+# (0.19057493359375, 0.5043005923611111, 
+# 0.05946327812500001, 0.06931966805555557)
+def convert(size, box):
+    dw = 1./(size[0])
+    dh = 1./(size[1])
+    x = (box[0] + box[1])/2.0
+    y = (box[2] + box[3])/2.0
+    w = box[1] - box[0]
+    h = box[3] - box[2]
+    x = x*dw
+    w = w*dw
+    y = y*dh
+    h = h*dh
+    return (x,y,w,h)
 
 # def fitness(x):
 #     # Returns fitness (for use with results.txt or evolve.txt)
