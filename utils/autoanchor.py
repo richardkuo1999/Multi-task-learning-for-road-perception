@@ -6,6 +6,7 @@ import yaml
 from scipy.cluster.vq import kmeans
 from tqdm import tqdm
 
+from utils.general import colorstr
 
 def check_anchor_order(m):
     # Check anchor order against stride order for YOLOv5 Detect() module m, and correct if necessary
@@ -19,6 +20,9 @@ def check_anchor_order(m):
 
 
 def check_anchors(dataset, model, thr=4.0, imgsz=640):
+    # Check anchor fit to data, recompute if necessary
+    prefix = colorstr('autoanchor: ')
+    print(f'\n{prefix}Analyzing anchors... ', end='')
     det = model.module.model[model.module.detector_index] if is_parallel(model) \
         else model.model[model.detector_index]
     anchor_num = det.na * det.nl
@@ -30,7 +34,7 @@ def check_anchors(dataset, model, thr=4.0, imgsz=640):
     print('New anchors saved to model. Update model config to use these anchors in the future.')
 
 
-def kmean_anchors(path='./data/coco128.yaml', n=9, img_size=640, thr=4.0, gen=1000, verbose=True):
+def kmean_anchors(path='./hyp/yolop.yaml', n=9, img_size=640, thr=4.0, gen=1000, verbose=True):
     """ Creates kmeans-evolved anchors from training dataset
 
         Arguments:
@@ -48,6 +52,7 @@ def kmean_anchors(path='./data/coco128.yaml', n=9, img_size=640, thr=4.0, gen=10
             from utils.autoanchor import *; _ = kmean_anchors()
     """
     thr = 1. / thr
+    prefix = colorstr('autoanchor: ')
 
     def metric(k, wh):  # compute metrics
         r = wh[:, None] / k[None]
@@ -63,9 +68,9 @@ def kmean_anchors(path='./data/coco128.yaml', n=9, img_size=640, thr=4.0, gen=10
         k = k[np.argsort(k.prod(1))]  # sort small to large
         x, best = metric(k, wh0)
         bpr, aat = (best > thr).float().mean(), (x > thr).float().mean() * n  # best possible recall, anch > thr
-        print('thr=%.2f: %.4f best possible recall, %.2f anchors past thr' % (thr, bpr, aat))
-        print('n=%g, img_size=%s, metric_all=%.3f/%.3f-mean/best, past_thr=%.3f-mean: ' %
-              (n, img_size, x.mean(), best.mean(), x[x > thr].mean()), end='')
+        print(f'{prefix}thr={thr:.2f}: {bpr:.4f} best possible recall, {aat:.2f} anchors past thr')
+        print(f'{prefix}n={n}, img_size={img_size}, metric_all={x.mean():.3f}/{best.mean():.3f}-mean/best, '
+              f'past_thr={x[x > thr].mean():.3f}-mean: ', end='')
         for i, x in enumerate(k):
             print('%i,%i' % (round(x[0]), round(x[1])), end=',  ' if i < len(k) - 1 else '\n')  # use in *.cfg
         return k
@@ -81,6 +86,7 @@ def kmean_anchors(path='./data/coco128.yaml', n=9, img_size=640, thr=4.0, gen=10
         # normalize label
         labels[:, [2, 4]] /= dataset.shapes[0]
         labels[:, [1, 3]] /= dataset.shapes[1]
+        
     # Get label wh
     shapes = img_size * dataset.shapes / dataset.shapes.max()
     # wh0 = np.concatenate([l[:, 3:5] * shapes for l in labels])  # wh

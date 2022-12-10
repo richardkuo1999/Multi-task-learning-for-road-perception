@@ -19,19 +19,7 @@ from utils.general import xyxy2xywh
 
 img_formats = ['.bmp', '.jpg', '.jpeg', '.png', '.tif', '.tiff', '.dng']
 vid_formats = ['.mov', '.avi', '.mp4', '.mpg', '.mpeg', '.m4v', '.wmv', '.mkv']
-# bdd_labels = {
-# 'unlabeled':0, 'dynamic': 1, 'ego vehicle': 2, 'ground': 3, 
-# 'static': 4, 'parking': 5, 'rail track': 6, 'road': 7, 
-# 'sidewalk': 8, 'bridge': 9, 'building': 10, 'fence': 11, 
-# 'garage': 12, 'guard rail': 13, 'tunnel': 14, 'wall': 15,
-# 'banner': 16, 'billboard': 17, 'lane divider': 18,'parking sign': 19, 
-# 'pole': 20, 'polegroup': 21, 'street light': 22, 'traffic cone': 23,
-# 'traffic device': 24, 'traffic light': 25, 'traffic sign': 26, 'traffic sign frame': 27,
-# 'terrain': 28, 'vegetation': 29, 'sky': 30, 'person': 31,
-# 'rider': 32, 'bicycle': 33, 'bus': 34, 'car': 35, 
-# 'caravan': 36, 'motorcycle': 37, 'trailer': 38, 'train': 39,
-# 'truck': 40       
-# }
+
 id_dict = {'person': 0, 'rider': 1, 'car': 2, 'bus': 3, 'truck': 4, 
 'bike': 5, 'motor': 6, 'tl_green': 7, 'tl_red': 8, 
 'tl_yellow': 9, 'tl_none': 10, 'traffic sign': 11, 'train': 12}
@@ -39,6 +27,32 @@ id_dict_single = {'car': 0, 'bus': 1, 'truck': 2,'train': 3}
 # id_dict = {'car': 0, 'bus': 1, 'truck': 2}
 
 single_cls = True       # just detect vehicle
+
+
+def create_dataloader(args, hyp, batch_size, normalize, is_train=True, shuffle=True):
+    normalize = transforms.Normalize(
+            normalize['mean'], normalize['std']
+        )
+
+    datasets = eval(args.dataset)(
+        args=args,
+        hyp=hyp,
+        is_train=is_train,
+        inputsize=args.img_size,
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            normalize,
+        ])
+    )
+    loader = DataLoaderX(
+        datasets,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=args.workers,
+        pin_memory=True,
+        collate_fn=AutoDriveDataset.collate_fn
+    )
+    return loader, datasets
 
 def convert(size, box):
     dw = 1./(size[0])
@@ -462,9 +476,8 @@ class HustDataset(AutoDriveDataset):
         pass
 
 class LoadImages:  # for inference
-    def __init__(self, path, img_size=640):
-        p = str(Path(path))  # os-agnostic
-        p = os.path.abspath(p)  # absolute path
+    def __init__(self, path, img_size=640, stride=32):
+        p = str(Path(path).absolute())  # os-agnostic absolute path
         if '*' in p:
             files = sorted(glob.glob(p, recursive=True))  # glob
         elif os.path.isdir(p):
@@ -472,23 +485,24 @@ class LoadImages:  # for inference
         elif os.path.isfile(p):
             files = [p]  # files
         else:
-            raise Exception('ERROR: %s does not exist' % p)
+            raise Exception(f'ERROR: {p} does not exist')
 
         images = [x for x in files if os.path.splitext(x)[-1].lower() in img_formats]
         videos = [x for x in files if os.path.splitext(x)[-1].lower() in vid_formats]
         ni, nv = len(images), len(videos)
 
         self.img_size = img_size
+        self.stride = stride
         self.files = images + videos
         self.nf = ni + nv  # number of files
         self.video_flag = [False] * ni + [True] * nv
-        self.mode = 'images'
+        self.mode = 'image'
         if any(videos):
             self.new_video(videos[0])  # new video
         else:
             self.cap = None
-        assert self.nf > 0, 'No images or videos found in %s. Supported formats are:\nimages: %s\nvideos: %s' % \
-                            (p, img_formats, vid_formats)
+        assert self.nf > 0, f'No images or videos found in {p}. ' \
+                            f'Supported formats are:\nimages: {img_formats}\nvideos: {vid_formats}'
 
     def __iter__(self):
         self.count = 0
@@ -515,7 +529,7 @@ class LoadImages:  # for inference
             h0, w0 = img0.shape[:2]
 
             self.frame += 1
-            print('\n video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nf, self.frame, self.nframes, path), end='')
+            print(f'video {self.count + 1}/{self.nf} ({self.frame}/{self.nframes}) {path}: ', end='')
 
         else:
             # Read image
@@ -523,7 +537,7 @@ class LoadImages:  # for inference
             img0 = cv2.imread(path, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)  # BGR
             #img0 = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
             assert img0 is not None, 'Image Not Found ' + path
-            print('image %g/%g %s: \n' % (self.count, self.nf, path), end='')
+            print(f'image {self.count}/{self.nf} {path}: ')
             h0, w0 = img0.shape[:2]
 
         # Padded resize
@@ -635,30 +649,10 @@ class DataLoaderX(DataLoader):
         return BackgroundGenerator(super().__iter__())
 
 
-def create_dataloader(args, hyp, batch_size, normalize, is_train=True, shuffle=True):
-    normalize = transforms.Normalize(
-            normalize['mean'], normalize['std']
-        )
 
-    datasets = eval(args.dataset)(
-        args=args,
-        hyp=hyp,
-        is_train=is_train,
-        inputsize=args.img_size,
-        transform=transforms.Compose([
-            transforms.ToTensor(),
-            normalize,
-        ])
-    )
-    loader = DataLoaderX(
-        datasets,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=args.workers,
-        pin_memory=True,
-        collate_fn=AutoDriveDataset.collate_fn
-    )
-    return loader, datasets
+
+
+
 
 
 

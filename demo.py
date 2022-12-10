@@ -22,6 +22,9 @@ from utils.general import increment_path, write_log, non_max_suppression,\
                         scale_coords, AverageMeter
 
 
+
+
+
 normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
@@ -134,7 +137,7 @@ def detect(args, device):
                 plot_one_box(xyxy, img_det , label=label_det_pred, 
                                         color=colors[int(cls)], line_thickness=2)
         
-        if dataset.mode == 'images':
+        if dataset.mode == 'image':
             cv2.imwrite(str(save_path),img_det)
 
         elif dataset.mode == 'video':
