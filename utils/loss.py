@@ -1,8 +1,11 @@
 import torch.nn as nn
 import torch
-from lib.core.general import bbox_iou
-from lib.core.postprocess import build_targets
-from lib.core.evaluate import SegmentationMetric
+
+
+from utils.general import bbox_iou
+from utils.metrics import  SegmentationMetric
+from utils.postprocess import build_targets
+
 
 class MultiHeadLoss(nn.Module):
     """
@@ -126,7 +129,7 @@ class MultiHeadLoss(nn.Module):
         lane_line_gt = lane_line_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
         metric.reset()
         metric.addBatch(lane_line_pred.cpu(), lane_line_gt.cpu())
-        IoU = metric.IntersectionOverUnion()
+        IoU, _ = metric.IntersectionOverUnion()
         liou_ll = 1 - IoU
 
         s = 3 / no  # output count scaling

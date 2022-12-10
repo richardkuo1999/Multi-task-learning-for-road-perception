@@ -1,9 +1,8 @@
 import torch
-from lib.utils import is_parallel
 import numpy as np
 np.set_printoptions(threshold=np.inf)
 import cv2
-from sklearn.cluster import DBSCAN
+# from sklearn.cluster import DBSCAN
 
 
 def build_targets(hyp, predictions, targets, model):
@@ -20,8 +19,7 @@ def build_targets(hyp, predictions, targets, model):
     t [index, class, x, y, w, h, head_index]
     '''
     # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
-    det = model.module.model[model.module.detector_index] if is_parallel(model) \
-        else model.model[model.detector_index]  # Detect() module
+    det = model.model[model.detector_index]  # Detect() module
     # print(type(model))
     # det = model.model[model.detector_index]
     # print(type(det))

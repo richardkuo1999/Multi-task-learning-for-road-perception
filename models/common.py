@@ -81,7 +81,64 @@ class SharpenConv(nn.Module):
     def fuseforward(self, x):
         return self.act(self.conv(x))
 
+class Swish(nn.Module):  #
+    @staticmethod
+    def forward(x):
+        return x * torch.sigmoid(x)
 
+
+class MemoryEfficientSwish(nn.Module):
+    class F(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, x):
+            ctx.save_for_backward(x)
+            return x * torch.sigmoid(x)
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            x = ctx.saved_tensors[0]
+            sx = torch.sigmoid(x)
+            return grad_output * (sx * (1 + x * (1 - sx)))
+
+    def forward(self, x):
+        return self.F.apply(x)
+
+
+# Mish https://github.com/digantamisra98/Mish --------------------------------------------------------------------------
+class Mish(nn.Module):
+    @staticmethod
+    def forward(x):
+        return x * F.softplus(x).tanh()
+
+
+class MemoryEfficientMish(nn.Module):
+    class F(torch.autograd.Function):
+        @staticmethod
+        def forward(ctx, x):
+            ctx.save_for_backward(x)
+            return x.mul(torch.tanh(F.softplus(x)))  # x * tanh(ln(1 + exp(x)))
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            x = ctx.saved_tensors[0]
+            sx = torch.sigmoid(x)
+            fx = F.softplus(x).tanh()
+            return grad_output * (fx + x * sx * (1 - fx * fx))
+
+    def forward(self, x):
+        return self.F.apply(x)
+
+
+# FReLU https://arxiv.org/abs/2007.11824 -------------------------------------------------------------------------------
+class FReLU(nn.Module):
+    def __init__(self, c1, k=3):  # ch_in, kernel
+        super().__init__()
+        self.conv = nn.Conv2d(c1, c1, k, 1, 1, groups=c1, bias=False)
+        self.bn = nn.BatchNorm2d(c1)
+
+    def forward(self, x):
+        return torch.max(x, self.bn(self.conv(x)))
+        
 class Hardswish(nn.Module):  # export-friendly version of nn.Hardswish()
     @staticmethod
     def forward(x):
@@ -388,7 +445,19 @@ class SPPCSPC(nn.Module):
         y1 = self.cv6(self.cv5(torch.cat([x1] + [m(x1) for m in self.m], 1)))
         y2 = self.cv2(x)
         return self.cv7(torch.cat((y1, y2), dim=1))
-        
+
+class Contract(nn.Module):
+    # Contract width-height into channels, i.e. x(1,64,80,80) to x(1,256,40,40)
+    def __init__(self, gain=2):
+        super().__init__()
+        self.gain = gain
+
+    def forward(self, x):
+        N, C, H, W = x.size()  # assert (H / s == 0) and (W / s == 0), 'Indivisible gain'
+        s = self.gain
+        x = x.view(N, C, H // s, s, W // s, s)  # x(1,64,40,2,40,2)
+        x = x.permute(0, 3, 5, 1, 2, 4).contiguous()  # x(1,2,2,64,40,40)
+        return x.view(N, C * s * s, H // s, W // s)  # x(1,256,40,40)       
 
 class Focus(nn.Module):
     # Focus wh information into c-space

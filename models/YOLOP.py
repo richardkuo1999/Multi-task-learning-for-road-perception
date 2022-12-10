@@ -1,23 +1,14 @@
 import yaml
 import torch
 import torch.nn as nn
-import sys,os
 import math
-import sys
-sys.path.append(os.getcwd())
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
-#sys.path.append("lib/models")
-#sys.path.append("lib/utils")
-#sys.path.append("/workspace/wh/projects/DaChuang")
-from lib.utils import initialize_weights
-# from lib.models.common2 import DepthSeperabelConv2d as Conv
-# from lib.models.common2 import SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect
-from models.common import MP, Conv, SP, SPP, SPPCSPC, Bottleneck, BottleneckCSP, Focus, Concat, Detect, RepConv, IDetect, SharpenConv
-from torch.nn import Upsample
+from utils.metrics import  SegmentationMetric
 from utils.autoanchor import check_anchor_order
-from lib.core.evaluate import SegmentationMetric
-from lib.utils.utils import time_synchronized
+from utils.torch_utils import time_synchronized, initialize_weights
+from torch.nn import Upsample
+from models.common import MP, Conv, SP, SPP, SPPCSPC, Bottleneck,\
+                         BottleneckCSP, Focus, Concat, Detect, RepConv,\
+                         IDetect, SharpenConv
 
 
 class MCnet(nn.Module):

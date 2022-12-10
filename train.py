@@ -12,19 +12,20 @@ from tensorboardX import SummaryWriter
 import torch
 import torch.optim
 import torch.utils.data
-import torch.backends.cudnn
 from torch.cuda import amp
+import torch.backends.cudnn
 
 
 
-from models.YOLOP import get_net, get_optimizer
-from test import AverageMeter, test
-from utils.autoanchor import check_anchors
 from utils.loss import get_loss
-from utils.datasets import create_dataloader
-from utils.general import colorstr, set_logging, increment_path, write_log, val_tensorboard
 from utils.metrics import fitness
+from test import test
+from utils.autoanchor import check_anchors
 from utils.torch_utils import select_device
+from utils.datasets import create_dataloader
+from models.YOLOP import get_net, get_optimizer
+from utils.general import colorstr, set_logging, increment_path, write_log,\
+                         val_tensorboard, AverageMeter
 
 
 SEG_ONLY = False           # Only train two segmentation branchs
@@ -242,10 +243,10 @@ def main(args, hyp, device, writer):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--hyp', type=str, 
-                            default='lib/data/hyp.scratch.yolop.yaml', 
+                            default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
                                             help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
@@ -261,9 +262,9 @@ def parse_args():
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--train_batch_size', type=int, default=35, 
+    parser.add_argument('--train_batch_size', type=int, default=30, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--test_batch_size', type=int, default=35, 
+    parser.add_argument('--test_batch_size', type=int, default=30, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
@@ -282,16 +283,16 @@ def parse_args():
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
     parser.add_argument('--dataRoot', type=str, 
-                    default='./dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
+                    default='F:/dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
                             help='the path of images folder')
     parser.add_argument('--labelRoot', type=str, 
-                    default='./dataset/BDD100k_10k/labels/10k', 
+                    default='F:/dataset/BDD100k_10k/labels/10k', 
                             help='the path of det_annotations folder')
     parser.add_argument('--maskRoot', type=str, 
-                    default='./dataset/BDD100k_10k/labels/bdd_seg_gt', 
+                    default='F:/dataset/BDD100k_10k/labels/bdd_seg_gt', 
                             help='the path of da_seg_annotations folder')
     parser.add_argument('--laneRoot', type=str, 
-                    default='./dataset/BDD100k_10k/labels/bdd_lane_gt', 
+                    default='F:/dataset/BDD100k_10k/labels/bdd_lane_gt', 
                             help='the path of ll_seg_annotations folder')
     parser.add_argument('--trainSet', type=str, default='train', 
                             help='IOU threshold for NMS')

@@ -11,34 +11,15 @@ import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 
 
-from lib.utils.utils import time_synchronized
-from lib.dataset import LoadImages, LoadStreams
-from lib.core.general import non_max_suppression, scale_coords
-from lib.utils import plot_one_box,show_seg_result
-from lib.core.postprocess import morphological_process, connect_lane
 
 
 from models.YOLOP import get_net
-from utils.general import increment_path, write_log
-from utils.torch_utils import select_device
-
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count if self.count != 0 else 0
+from utils.datasets import LoadImages, LoadStreams
+from utils.plot import plot_one_box,show_seg_result
+from utils.torch_utils import select_device, time_synchronized
+from utils.postprocess import morphological_process, connect_lane
+from utils.general import increment_path, write_log, non_max_suppression,\
+                        scale_coords, AverageMeter
 
 
 normalize = transforms.Normalize(
@@ -191,9 +172,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='weights/epoch-116.pth', 
+    parser.add_argument('--weights', type=str, default='weights/epoch-295.pth', 
                                                     help='model.pth path(s)')
-    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7bT2.yaml', 
                                                     help='model.yaml path')
     parser.add_argument('--source', type=str, default='inference/images', 
                                                     help='source')  

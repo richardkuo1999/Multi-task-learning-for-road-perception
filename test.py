@@ -4,25 +4,24 @@ import json
 import random
 import argparse
 import numpy as np
+from PIL import Image
 from tqdm import tqdm
 from pathlib import Path
 
 import torch
 
-from lib.utils.utils import time_synchronized
-from lib.utils import plot_img_and_mask,plot_one_box,show_seg_result
-from lib.core.evaluate import ConfusionMatrix,SegmentationMetric
-from lib.core.general import non_max_suppression,check_img_size,scale_coords,\
-                            xyxy2xywh,xywh2xyxy,box_iou,coco80_to_coco91_class,\
-                            plot_images,ap_per_class,output_to_target
 
 
-
+from utils.loss import get_loss
 from models.YOLOP import get_net
 from utils.datasets import create_dataloader
-from utils.torch_utils import select_device
-from utils.general import increment_path, write_log
-from utils.loss import get_loss
+from utils.torch_utils import select_device, time_synchronized
+from utils.plot import plot_one_box,show_seg_result,plot_img_and_mask,plot_images
+from utils.metrics import ConfusionMatrix, SegmentationMetric, ap_per_class,\
+                            output_to_target, ap_per_class
+from utils.general import increment_path, write_log,non_max_suppression,\
+                        check_img_size,scale_coords,xyxy2xywh,xywh2xyxy,\
+                        box_iou,coco80_to_coco91_class,AverageMeter
 
 
 SEG_ONLY = False           # Only train two segmentation branchs
@@ -35,23 +34,6 @@ DRIVABLE_ONLY = False      # Only train da_segmentation task
 LANE_ONLY = False          # Only train ll_segmentation task
 DET_ONLY = False 
 
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count if self.count != 0 else 0
 
 def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
               results_file, logger=None, device='cpu'):
@@ -84,7 +66,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     save_conf=False # save auto-label confidences
     verbose=False
     save_hybrid=False
-    log_imgs,wandb = min(16,100), None
+    log_imgs = min(16,100)
 
     nc = 1
      #iou vector for mAP@0.5:0.95
@@ -121,7 +103,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
     # switch to train mode
     model.eval()
-    jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
+    jdict, stats, ap, ap_class = [], [], [], []
 
     for batch_i, (img, target, paths, shapes) in tqdm(enumerate(val_loader), total=len(val_loader)):
 
@@ -152,8 +134,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             da_metric.reset()
             da_metric.addBatch(da_predict.cpu(), da_gt.cpu())
             da_acc = da_metric.pixelAccuracy()
-            da_IoU = da_metric.IntersectionOverUnion()
-            da_mIoU = da_metric.meanIntersectionOverUnion()
+            da_IoU, da_mIoU = da_metric.IntersectionOverUnion()
 
             da_acc_seg.update(da_acc,img.size(0))
             da_IoU_seg.update(da_IoU,img.size(0))
@@ -168,8 +149,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             ll_metric.reset()
             ll_metric.addBatch(ll_predict.cpu(), ll_gt.cpu())
             ll_acc = ll_metric.lineAccuracy()
-            ll_IoU = ll_metric.IntersectionOverUnion()
-            ll_mIoU = ll_metric.meanIntersectionOverUnion()
+            ll_IoU, ll_mIoU = ll_metric.IntersectionOverUnion()
 
             ll_acc_seg.update(ll_acc,img.size(0))
             ll_IoU_seg.update(ll_IoU,img.size(0))
@@ -277,16 +257,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     with open(save_dir / 'labels' / (path.stem + '.txt'), 'a') as f:
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
-            # W&B logging
-            if len(wandb_images) < log_imgs:
-                box_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
-                             "class_id": int(cls),
-                             "box_caption": "%s %.3f" % (names[cls], conf),
-                             "scores": {"class_score": conf},
-                             "domain": "pixel"} for *xyxy, conf, cls in pred.tolist()]
-                boxes = {"predictions": {"box_data": box_data, "class_labels": names}}  # inference-space
-                wandb_images.append(wandb.Image(img[si], boxes=boxes, caption=path.name))
-
             # Append to pycocotools JSON dictionary
             if args.saveJson:
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
@@ -373,9 +343,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
     # Plots
     confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
-    if wandb and wandb.run:
-        wandb.log({"Images": wandb_images})
-        wandb.log({"Validation": [wandb.Image(str(f), caption=f.name) for f in sorted(save_dir.glob('test*.jpg'))]})
 
     # Save JSON
     if args.saveJson and len(jdict):
@@ -440,9 +407,9 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Test Multitask network')
-    parser.add_argument('--hyp', type=str, default='lib/data/hyp.scratch.yolop.yaml', 
+    parser.add_argument('--hyp', type=str, default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
-    parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7bT2.yaml', 
                                                 help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/test',
                             help='log directory')
@@ -455,7 +422,7 @@ def parse_args():
     parser.add_argument('--allplot', type=bool, default=False)
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='F:/ITRI/YOLOP/weights/checkpoint.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', type=str, default='./weights/epoch-295.pth', help='model.pth path(s)')
     parser.add_argument('--test_batch_size', type=int, default=1, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 

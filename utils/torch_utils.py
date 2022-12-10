@@ -1,6 +1,8 @@
-import datetime
-import logging
 import os
+import time
+
+import logging
+import datetime
 import platform
 import subprocess
 from contextlib import contextmanager
@@ -8,12 +10,17 @@ from pathlib import Path
 
 import torch
 import torch.nn
+import torch.nn as nn
 
 try:
     import thop  # for FLOPS computation
 except ImportError:
     thop = None
 logger = logging.getLogger(__name__)
+
+def time_synchronized():
+    torch.cuda.synchronize() if torch.cuda.is_available() else None
+    return time.time()
 
 @contextmanager
 def torch_distributed_zero_first(local_rank: int):
@@ -66,5 +73,14 @@ def select_device(device='', batch_size=None):
     return torch.device('cuda:0' if cuda else 'cpu')
 
 
-def is_parallel(model):
-    return type(model) in (torch.nn.parallel.DataParallel, torch.nn.parallel.DistributedDataParallel)
+def initialize_weights(model):
+    for m in model.modules():
+        t = type(m)
+        if t is nn.Conv2d:
+            pass  # nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+        elif t is nn.BatchNorm2d:
+            m.eps = 1e-3
+            m.momentum = 0.03
+        elif t in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6]:
+        # elif t in [nn.LeakyReLU, nn.ReLU, nn.ReLU6]:
+            m.inplace = True
