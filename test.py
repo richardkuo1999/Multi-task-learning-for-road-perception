@@ -444,7 +444,7 @@ def parse_args():
                             help='hyperparameter path')
     parser.add_argument('--cfg', type=str, default='cfg/yolop.yaml', 
                                                 help='model.yaml path')
-    parser.add_argument('--logDir', type=str, default='runs/train',
+    parser.add_argument('--logDir', type=str, default='runs/test',
                             help='log directory')
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
                             help='[train, test] image sizes')

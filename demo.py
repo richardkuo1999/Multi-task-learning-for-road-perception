@@ -189,7 +189,7 @@ def detect(args, device):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--logDir', type=str, default='runs/train',
+    parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
     parser.add_argument('--weights', type=str, default='weights/epoch-116.pth', 
                                                     help='model.pth path(s)')
