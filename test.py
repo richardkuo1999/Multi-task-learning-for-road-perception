@@ -431,16 +431,10 @@ def parse_args():
     # dataset
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
+
     parser.add_argument('--dataRoot', type=str, default='F:/dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
                             help='the path of images folder')
-    parser.add_argument('--labelRoot', type=str, default='F:/dataset/BDD100k_10k/labels/10k', 
-                            help='the path of det_annotations folder')
-    parser.add_argument('--maskRoot', type=str, default='F:/dataset/BDD100k_10k/labels/bdd_seg_gt', 
-                            help='the path of da_seg_annotations folder')
-    parser.add_argument('--laneRoot', type=str, default='F:/dataset/BDD100k_10k/labels/bdd_lane_gt', 
-                            help='the path of ll_seg_annotations folder')
-    parser.add_argument('--testSet', type=str, default='val', 
-                            help='IOU threshold for NMS')
+
     parser.add_argument('--dataFormat', type=str, default='jpg', 
                             help='Data Format')
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')

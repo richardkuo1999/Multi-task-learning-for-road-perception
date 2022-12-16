@@ -50,14 +50,10 @@ def detect(args, device):
     if half:
         model.half()  # to FP16
 
+
     # Set Dataloader
-    if args.source.isnumeric():
-        cudnn.benchmark = True  
-        dataset = LoadStreams(args.source, img_size=args.img_size)
-        bs = len(dataset)  # batch_size
-    else:
-        dataset = LoadImages(args.source, img_size=args.img_size)
-        bs = 1  # batch_size
+    dataset = LoadImages(args.source, img_size=args.img_size)
+    bs = 1  # batch_size
 
 
     # Get names and colors
