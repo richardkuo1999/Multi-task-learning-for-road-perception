@@ -435,8 +435,6 @@ def parse_args():
     parser.add_argument('--dataRoot', type=str, default='F:/dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
                             help='the path of images folder')
 
-    parser.add_argument('--dataFormat', type=str, default='jpg', 
-                            help='Data Format')
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
     return parser.parse_args()

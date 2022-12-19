@@ -1,21 +1,20 @@
 import os
 import cv2
-import math
+import yaml
 import glob
-import time
 import json
 import random
+import argparse
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
-from threading import Thread
 from prefetch_generator import BackgroundGenerator
 
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as transforms
 
-from utils.general import xyxy2xywh, convert, clean_str
+from utils.general import xyxy2xywh, convert
 from utils.augmentations import augment_hsv, random_perspective, letterbox,\
                                  letterbox_for_img
 
@@ -81,7 +80,6 @@ class AutoDriveDataset(Dataset):
         self.hyp = hyp
         self.transform = transform
         self.inputsize = inputsize
-        self.data_format = args.dataFormat
         self.shapes = np.array(args.org_img_size)
 
         # Data Root
@@ -91,9 +89,7 @@ class AutoDriveDataset(Dataset):
         self.mask_root = Path(args.dataRoot) /'labels' / 'bdd_seg_gt' / indicator
         self.lane_root = Path(args.dataRoot) /'labels' / 'bdd_lane_gt' / indicator
 
-        self.mask_list = self.mask_root.iterdir()
-
-
+        self.img_list = self.img_root.iterdir()
         self.Tensor = transforms.ToTensor()
     
     def _get_db(self):
@@ -116,7 +112,7 @@ class AutoDriveDataset(Dataset):
 
     def __getitem__(self, idx):
         """
-        Get input and groud-truth from database & add data augmentation on input
+        Get input and ground-truth from database & add data augmentation on input
 
         Inputs:
         -idx: the index of image in self.db(database)(list)
@@ -138,8 +134,6 @@ class AutoDriveDataset(Dataset):
         seg_label = cv2.imread(data["mask"])
         lane_label = cv2.imread(data["lane"])
         # TODO
-        # print(lane_label.shape)
-        # print(seg_label.shape)
         # print(lane_label.shape)
         # print(seg_label.shape)
         resized_shape = self.inputsize
@@ -272,18 +266,11 @@ class AutoDriveDataset(Dataset):
 
         return img, target, data["image"], shapes
 
-    def select_data(self, db):
+    def filter_data(self, db):
         """
-        You can use this function to filter useless images in the dataset
-
-        Inputs:
-        -db: (list)database
-
-        Returns:
-        -db_selected: (list)filtered dataset
+        finished on children dataset
         """
-        db_selected = ...
-        return db_selected
+        raise NotImplementedError
 
     @staticmethod
     def collate_fn(batch):
@@ -300,65 +287,64 @@ class AutoDriveDataset(Dataset):
 class BddDataset(AutoDriveDataset):
     def __init__(self, args, hyp, is_train, inputsize, transform=None):
         super().__init__(args, hyp, is_train, inputsize, transform)
-        self.db = self._get_db()
+        self.db = self.__get_db()
         
-    def _get_db(self):
-        """
-        get database from the annotation file
-
-        Inputs:
+    def __get_db(self):
+        """get database from the annotation file
 
         Returns:
-        gt_db: (list)database   [a,b,c,...]
-                a: (dictionary){'image':, 'information':, ......}
-        image: image path
-        mask: path of the segmetation label
-        label: [cls_id, center_x//256, center_y//256, w//256, h//256] 256=IMAGE_SIZE
+            gt_db: (list)database   [a,b,c,...]
+                a: (dictionary){'image':, 'label':, 'mask':,'lane':}
+            image: image path
+            label: [cls_id, center_x//256, center_y//256, w//256, h//256] 256=IMAGE_SIZE
+            mask: path of the driver area segmentation label path
+            lane: path of the lane segmentation label path
         """
-        print('building database...')
         gt_db = []
-        height, width = self.shapes
-        for mask in tqdm(list(self.mask_list)):
-            print(mask)
-            mask_path = str(mask)
-            label_path = mask_path.replace(str(self.mask_root), str(self.label_root)).replace(".png", ".json")
-            image_path = mask_path.replace(str(self.mask_root), str(self.img_root)).replace(".png", ".jpg")
-            lane_path = mask_path.replace(str(self.mask_root), str(self.lane_root))
-            with open(label_path, 'r') as f:
-                label = json.load(f)
-            data = label['frames'][0]['objects']
-            data = self.filter_data(data)
-            gt = np.zeros((len(data), 5))
-            for idx, obj in enumerate(data):
-                category = obj['category']
-                if category == "traffic light":
-                    color = obj['attributes']['trafficLightColor']
-                    category = "tl_" + color
-                if category in id_dict.keys():
-                    x1 = float(obj['box2d']['x1'])
-                    y1 = float(obj['box2d']['y1'])
-                    x2 = float(obj['box2d']['x2'])
-                    y2 = float(obj['box2d']['y2'])
-                    cls_id = id_dict[category]
-                    if single_cls:
-                         cls_id=0
-                    gt[idx][0] = cls_id
-                    box = convert((width, height), (x1, x2, y1, y2))
-                    gt[idx][1:] = list(box)
-                
+        for ImageName in tqdm(list(self.img_list)):
+            name = ImageName.name.split('.')[0]
+            label_path = str(self.label_root / (name+'.json'))
 
-            rec = [{
-                'image': image_path,
-                'label': gt,
-                'mask': mask_path,
-                'lane': lane_path
-            }]
+            rec = {
+                'image': str(self.img_root / (name+'.jpg')),
+                'label': self.__GetOD_GT(label_path),
+                'mask': str(self.mask_root / (name+'.png')),
+                'lane': str(self.lane_root / (name+'.png'))
+            }
 
-            gt_db += rec
-        print('database build finish')
+            gt_db.append(rec)
         return gt_db
 
-    def filter_data(self, data):
+    def __GetOD_GT(self, label_path):
+        height, width = self.shapes
+        with open(label_path, 'r') as f:
+                label = json.load(f)    
+        data = label['frames'][0]['objects']
+        data = self.filter_data(data)
+        gt = np.zeros((len(data), 5))
+        for idx, obj in enumerate(data):
+            category = obj['category']
+            if obj['category'] in id_dict.keys():
+                x1 = float(obj['box2d']['x1'])
+                y1 = float(obj['box2d']['y1'])
+                x2 = float(obj['box2d']['x2'])
+                y2 = float(obj['box2d']['y2'])
+
+                gt[idx][0] = 0 if single_cls else id_dict[category]
+                box = convert((width, height), (x1, x2, y1, y2))
+                gt[idx][1:] = list(box)
+        return gt
+
+    def filter_data(self, data: list)->list:
+        # TODO deal with dataset(don't convert evert time)
+        """Filter useless image in the dataset
+
+        Args:
+            data (list): database
+
+        Returns:
+            remain (list): filtered dataset
+        """
         remain = []
         for obj in data:
             if 'box2d' in obj.keys():  # obj.has_key('box2d'):
@@ -458,6 +444,5 @@ class LoadImages:  # for inference
 
     def __len__(self):
         return self.nf  # number of files
-
 
 

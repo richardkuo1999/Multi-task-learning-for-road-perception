@@ -287,8 +287,6 @@ def parse_args():
                     default='F:/dataset/BDD100k_10k', 
                             help='the path of images folder')
 
-    parser.add_argument('--dataFormat', type=str, default='jpg', 
-                            help='Data Format')
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
                             help='[train, test] image sizes')
     parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 

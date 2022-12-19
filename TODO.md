@@ -9,6 +9,8 @@ Project Description
 - [ ] let Lane Line  Segment Head can be classified  
 - [ ] modify Loss function  
 - [ ] build up model method change to YOLOv7 type  
+- [ ] deal with dataset(don't convert evert time) 
+- convert every time)  
 - [ ] EMA model  
 - [ ] multi gpu  
 
