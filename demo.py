@@ -14,7 +14,7 @@ import torchvision.transforms as transforms
 
 
 from models.YOLOP import get_net
-from utils.datasets import LoadImages, LoadStreams
+from utils.datasets import LoadImages
 from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
 from utils.postprocess import morphological_process, connect_lane
