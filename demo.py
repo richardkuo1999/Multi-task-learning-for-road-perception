@@ -1,13 +1,10 @@
 import cv2
 import time
-import shutil
-import os, sys
 import argparse
 from pathlib import Path
 from numpy import random
 
 import torch
-import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 
 
@@ -122,41 +119,37 @@ def detect(args, device):
         # Lane line post-processing
         #ll_seg_mask = morphological_process(ll_seg_mask, kernel_size=7, func_type=cv2.MORPH_OPEN)
         #ll_seg_mask = connect_lane(ll_seg_mask)
+        if args.draw:
+            img_det = show_seg_result(img_det, (da_seg_mask, ll_seg_mask), _, _, 
+                                                                is_demo=True)
 
-        img_det = show_seg_result(img_det, (da_seg_mask, ll_seg_mask), _, _, 
-                                                            is_demo=True)
+            if len(det):
+                det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
+                for *xyxy,conf,cls in reversed(det):
+                    label_det_pred = f'{names[int(cls)]} {conf:.2f}'
+                    plot_one_box(xyxy, img_det , label=label_det_pred, 
+                                            color=colors[int(cls)], line_thickness=2)
+            
+            if dataset.mode == 'image':
+                cv2.imwrite(str(save_path),img_det)
 
-        if len(det):
-            det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
-            for *xyxy,conf,cls in reversed(det):
-                label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-                plot_one_box(xyxy, img_det , label=label_det_pred, 
-                                        color=colors[int(cls)], line_thickness=2)
-        
-        if dataset.mode == 'image':
-            cv2.imwrite(str(save_path),img_det)
+            elif dataset.mode == 'video':
+                if vid_path != save_path:  # new video
+                    vid_path = save_path
+                    if isinstance(vid_writer, cv2.VideoWriter):
+                        vid_writer.release()  # release previous video writer
 
-        elif dataset.mode == 'video':
-            if vid_path != save_path:  # new video
-                vid_path = save_path
-                if isinstance(vid_writer, cv2.VideoWriter):
-                    vid_writer.release()  # release previous video writer
+                    fourcc = 'mp4v'  # output video codec
+                    fps = vid_cap.get(cv2.CAP_PROP_FPS)
+                    h,w,_=img_det.shape
+                    vid_writer = cv2.VideoWriter(save_path, 
+                                        cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
+                vid_writer.write(img_det)
+            
+            else:
+                cv2.imshow('image', img_det)
+                cv2.waitKey(1)  # 1 millisecond
 
-                fourcc = 'mp4v'  # output video codec
-                fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                h,w,_=img_det.shape
-                vid_writer = cv2.VideoWriter(save_path, 
-                                    cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
-            vid_writer.write(img_det)
-        
-        else:
-            cv2.imshow('image', img_det)
-            cv2.waitKey(1)  # 1 millisecond
-
-    # print('Results saved to %s' % Path(args.save_dir))
-    # print('Done. (%.3f s)' % (time.time() - t0))
-    # print('inf : (%.4f s/frame)   nms : (%.4fs/frame)' % (inf_time.avg,nms_time.avg))
-    # print('fps : (%.4f frame/s)' % (1/(inf_time.avg+nms_time.avg)))
     msg = f'{str(args.weights)} , {str(args.cfg)}\n'+\
           f'Results saved to {str(args.save_dir)}\n'+\
           f'Done. ({(time.time() - t0)} s)\n'+\
@@ -189,23 +182,28 @@ if __name__ == '__main__':
                             help='save to dataset name')
     parser.add_argument('--save-dir', type=str, default='inference/output', 
                                                 help='directory to save results')
+    parser.add_argument('--draw', type=bool, default= False)
     parser.add_argument('--augment', action='store_true',help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
     args = parser.parse_args()
 
     device = select_device(args.device)
     
-    # test_yaml = ['cfg/yolop.yaml','cfg/yolop.yaml','cfg/YOLOP_v7b1.yaml','cfg/YOLOP_v7b2.yaml','cfg/YOLOP_v7bT1.yaml','cfg/yolop.yaml']
-    # test_weight = ['weights/epoch-240.pth','weights/epoch-116.pth','weights/epoch-280.pth','weights/epoch-200.pth','weights/epoch-295.pth','weights/epoch-182.pth',]
-    # for i, test_file in enumerate(zip(test_yaml,test_weight)):
-    #     print(i, test_file[0],test_file[1])
-    #     args.cfg = test_file[0]
-    #     args.weights = test_file[1]
-        
-    #     args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
-    #     with torch.no_grad():
-    #         detect(args, device)
+    test_yaml = ['yolop','YOLOP_v7b1','YOLOP_v7b2','YOLOP_v7b3','YOLOP_v7bT1','YOLOP_v7bT2', 'YOLOP_v7bT2_ReConv']
+    for i, test in enumerate(test_yaml):
+        print(i, test)
 
-    args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
-    with torch.no_grad():
-        detect(args, device)
+        args.cfg = str(Path('cfg') / (test + '.yaml'))
+        args.save_dir = increment_path(Path(args.logDir)/ test, exist_ok=False)  # increment run
+
+        weights_path = Path('weights') / test / 'weights'
+        
+        weight_List = [weight for weight in weights_path.iterdir()]
+        args.weights = weight_List[-1]
+        
+        with torch.no_grad():
+            detect(args, device)
+
+    # args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
+    # with torch.no_grad():
+    #     detect(args, device)
