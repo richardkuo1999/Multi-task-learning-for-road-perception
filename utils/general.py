@@ -8,6 +8,7 @@ import re
 import math
 import time
 import numpy as np
+import pandas as pd
 from thop import profile
 from fvcore.nn import FlopCountAnalysis, parameter_count_table, flop_count_table
 
@@ -336,8 +337,9 @@ def make_divisible(x, divisor):
     # Returns x evenly divisible by divisor
     return math.ceil(x / divisor) * divisor
 
+
 def OpCounter(img, model, results_file):
-    """calculate macs, params, flops, parameter count
+    """get macs, params, flops, parameter count
 
     Args:
         img (torch.Tensor): Test data
@@ -348,12 +350,26 @@ def OpCounter(img, model, results_file):
 
     write_log(results_file, f"MACs: {macs*2}")
     write_log(results_file, f"params: {params}")
-    write_log(results_file, ("@@@@@@@@@@@@@@\n"))
+
 
     flops = FlopCountAnalysis(model, img)
     write_log(results_file, f"FLOPs: {flops.total()}")
-    parameter_count = parameter_count_table(model)
-    write_log(results_file, parameter_count)
-    write_log(results_file, ("@@@@@@@@@@@@@@\n"))
-    flop_count = flop_count_table(flops)
-    write_log(results_file, flop_count)
+
+    # write results to csv
+    def write_csv(fileName, table):
+        parameter_data = table.split('\n')
+
+        data = {}
+        for i, index in enumerate(parameter_data[0].split('|')[1:-1], start=1):
+            data[index.strip(' ')] = [line.split('|')[i].strip(' ') for line in parameter_data[2:]]
+
+        myvar = pd.DataFrame(data)
+        myvar.to_csv(str(results_file).replace("results.txt",fileName))
+
+
+    parameter_table = parameter_count_table(model)
+    write_csv("parameter.csv", parameter_table)
+    
+    flop_table = flop_count_table(flops)
+    write_csv("flop.csv", flop_table)
+

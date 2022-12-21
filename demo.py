@@ -54,7 +54,7 @@ def detect(args, device):
     if img.ndimension() == 3:
         img = img.unsqueeze(0)
     OpCounter(img, model, results_file)
-
+    
     # Set Dataloader
     dataset = LoadImages(args.source, img_size=args.img_size)
     bs = 1  # batch_size
