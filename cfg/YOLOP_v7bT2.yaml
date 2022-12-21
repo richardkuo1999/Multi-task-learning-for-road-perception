@@ -117,12 +117,9 @@ YOLOP:
 # E-ELAN
    [-1, Conv, [512, 256, 1, 1, None, 1, nn.LeakyReLU(0.1)]],  # 73
       
-  #  [57, Conv, [64, 128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
-  #  [65, Conv, [128, 256, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
-  #  [73, Conv, [256, 512, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
-   [57, RepConv, [64, 128, 3, 1]],
-   [65, RepConv, [128, 256, 3, 1]],
-   [73, RepConv, [256, 512, 3, 1]],
+   [57, Conv, [64, 128, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+   [65, Conv, [128, 256, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
+   [73, Conv, [256, 512, 3, 1, None, 1, nn.LeakyReLU(0.1)]],
 
    [[74,75,76], IDetect, [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], 
                         [19,50,38,81,68,157]], [128, 256, 512]]],   # Detect(P3, P4, P5)
