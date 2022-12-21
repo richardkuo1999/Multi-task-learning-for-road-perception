@@ -8,7 +8,8 @@ import re
 import math
 import time
 import numpy as np
-
+from thop import profile
+from fvcore.nn import FlopCountAnalysis, parameter_count_table, flop_count_table
 
 import torch
 import torchvision
@@ -334,3 +335,25 @@ def clip_coords(boxes, img_shape):
 def make_divisible(x, divisor):
     # Returns x evenly divisible by divisor
     return math.ceil(x / divisor) * divisor
+
+def OpCounter(img, model, results_file):
+    """calculate macs, params, flops, parameter count
+
+    Args:
+        img (torch.Tensor): Test data
+        model (models): Test model
+        results_file (pathlib): save resuslt
+    """
+    macs, params = profile(model, inputs=(img, ))  # ,verbose=False
+
+    write_log(results_file, f"MACs: {macs*2}")
+    write_log(results_file, f"params: {params}")
+    write_log(results_file, ("@@@@@@@@@@@@@@\n"))
+
+    flops = FlopCountAnalysis(model, img)
+    write_log(results_file, f"FLOPs: {flops.total()}")
+    parameter_count = parameter_count_table(model)
+    write_log(results_file, parameter_count)
+    write_log(results_file, ("@@@@@@@@@@@@@@\n"))
+    flop_count = flop_count_table(flops)
+    write_log(results_file, flop_count)

@@ -1,13 +1,12 @@
 import cv2
 import time
 import argparse
-from pathlib import Path
+import numpy as np
 from numpy import random
+from pathlib import Path
 
 import torch
 import torchvision.transforms as transforms
-
-
 
 
 from models.YOLOP import get_net
@@ -16,7 +15,7 @@ from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
 from utils.postprocess import morphological_process, connect_lane
 from utils.general import increment_path, write_log, non_max_suppression,\
-                        scale_coords, AverageMeter
+                        scale_coords, AverageMeter, OpCounter
 
 
 
@@ -48,6 +47,14 @@ def detect(args, device):
         model.half()  # to FP16
 
 
+    # calculate macs, params, flops, parameter count
+    img = np.random.rand(384, 640, 3)
+    img = transform(img).to(device)
+    img = img.half() if half else img.float()  # uint8 to fp16/32
+    if img.ndimension() == 3:
+        img = img.unsqueeze(0)
+    OpCounter(img, model, results_file)
+
     # Set Dataloader
     dataset = LoadImages(args.source, img_size=args.img_size)
     bs = 1  # batch_size
@@ -56,7 +63,6 @@ def detect(args, device):
     # Get names and colors
     names = model.module.names if hasattr(model, 'module') else model.names
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
-
 
     # Run inference
     t0 = time.time()
