@@ -15,7 +15,7 @@ from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
 from utils.postprocess import morphological_process, connect_lane
 from utils.general import increment_path, write_log, non_max_suppression,\
-                        scale_coords, AverageMeter, OpCounter
+                        scale_coords, AverageMeter, OpCounter, addText2image
 
 
 
@@ -31,7 +31,7 @@ transform=transforms.Compose([
         ])
 
 
-def detect(args, device):
+def detect(args, device, expName):
     save_dir = args.save_dir
 
     save_dir.mkdir(parents=True, exist_ok=True)  # make dir
@@ -135,7 +135,9 @@ def detect(args, device):
                     label_det_pred = f'{names[int(cls)]} {conf:.2f}'
                     plot_one_box(xyxy, img_det , label=label_det_pred, 
                                             color=colors[int(cls)], line_thickness=2)
-            
+
+            fps= round(1/(inf_time.val+nms_time.val))
+            img_det = addText2image(img_det, expName,fps)
             if dataset.mode == 'image':
                 cv2.imwrite(str(save_path),img_det)
 
@@ -148,7 +150,7 @@ def detect(args, device):
                     fourcc = 'mp4v'  # output video codec
                     fps = vid_cap.get(cv2.CAP_PROP_FPS)
                     h,w,_=img_det.shape
-                    vid_writer = cv2.VideoWriter(save_path, 
+                    vid_writer = cv2.VideoWriter(str(save_path), 
                                         cv2.VideoWriter_fourcc(*fourcc), fps, (w, h))
                 vid_writer.write(img_det)
             
@@ -174,7 +176,7 @@ if __name__ == '__main__':
                                                     help='model.pth path(s)')
     parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7bT2.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--source', type=str, default='inference/images', 
+    parser.add_argument('--source', type=str, default='inference/Videos', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
@@ -188,7 +190,7 @@ if __name__ == '__main__':
                             help='save to dataset name')
     parser.add_argument('--save-dir', type=str, default='inference/output', 
                                                 help='directory to save results')
-    parser.add_argument('--draw', type=bool, default= False)
+    parser.add_argument('--draw', type=bool, default= True)
     parser.add_argument('--augment', action='store_true',help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
     args = parser.parse_args()
@@ -208,7 +210,7 @@ if __name__ == '__main__':
         args.weights = weight_List[-1]
         
         with torch.no_grad():
-            detect(args, device)
+            detect(args, device, test)
 
     # args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
     # with torch.no_grad():

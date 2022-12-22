@@ -1,3 +1,4 @@
+import cv2
 import glob
 import logging
 import time
@@ -337,6 +338,20 @@ def make_divisible(x, divisor):
     # Returns x evenly divisible by divisor
     return math.ceil(x / divisor) * divisor
 
+def value_to_float(x):
+    if type(x) == float or type(x) == int:
+        return x
+    if 'K' in x:
+        if len(x) > 1:
+            return float(x.replace('K', '')) * 1000
+        return 1000.0
+    if 'M' in x:
+        if len(x) > 1:
+            return float(x.replace('M', '')) * 1000000
+        return 1000000.0
+    if 'G' in x:
+        return float(x.replace('G', '')) * 1000000000
+    return x
 
 def OpCounter(img, model, results_file):
     """get macs, params, flops, parameter count
@@ -361,7 +376,8 @@ def OpCounter(img, model, results_file):
 
         data = {}
         for i, index in enumerate(parameter_data[0].split('|')[1:-1], start=1):
-            data[index.strip(' ')] = [line.split('|')[i].strip(' ') for line in parameter_data[2:]]
+
+            data[index.strip(' ')] = [value_to_float(line.split('|')[i].strip(' ')) for line in parameter_data[2:]]
 
         myvar = pd.DataFrame(data)
         myvar.to_csv(str(results_file).replace("results.txt",fileName))
@@ -373,3 +389,20 @@ def OpCounter(img, model, results_file):
     flop_table = flop_count_table(flops)
     write_csv("flop.csv", flop_table)
 
+def addText2image(image, tag, fps):
+                """add Tag and fps to image
+
+                Args:
+                    image (_type_): image
+                    tag (str): model name
+                    fps (int): fps
+
+                Returns:
+                    _type_: image
+                """
+                violet = np.zeros((80, image.shape[1], 3), np.uint8)
+                violet[:] = (255, 255, 255)
+                image = cv2.vconcat((violet, image))
+                cv2.putText(image, f'{tag},  FPS:{fps}', (30, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 3, 0)
+                return image

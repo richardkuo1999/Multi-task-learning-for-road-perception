@@ -6,21 +6,20 @@ Project Description
 
 ### Todo
 
-- [ ] let Lane Line  Segment Head can be classified  
-- [ ] modify Loss function  
-- [ ] build up model method change to YOLOv7 type  
-- [ ] deal with dataset(don't convert evert time) 
-- convert every time)  
+- [ ] deal with dataset(don't convert evert time)  
 - [ ] EMA model  
 - [ ] multi gpu  
 
 ### In Progress
 
-- [ ] data process  
-- [ ] dataloader multi class  
+- [ ] build up model method change to YOLOv7 type  
+- [ ] let Lane Line  Segment Head can be classified  
+- [ ] modify Loss function  
 
 ### Done ✓
 
+- [x] 12/18 dataloader multi class  
+- [x] 12/21 get MACs FLOTs  
 - [x] 12/09 Add profiler  
 - [x] 12/09 level up Pytorch and deal with the vision bug  
 - [x] 12/08 train YOLOP_v7b3  
