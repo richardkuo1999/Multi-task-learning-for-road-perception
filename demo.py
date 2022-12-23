@@ -172,11 +172,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='weights/epoch-295.pth', 
+    parser.add_argument('--weights', type=str, default='', 
                                                     help='model.pth path(s)')
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7bT2.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--source', type=str, default='inference/Videos', 
+    parser.add_argument('--source', type=str, default='inference/images', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
@@ -197,21 +197,23 @@ if __name__ == '__main__':
 
     device = select_device(args.device)
     
-    test_yaml = ['yolop','YOLOP_v7b1','YOLOP_v7b2','YOLOP_v7b3','YOLOP_v7bT1','YOLOP_v7bT2', 'YOLOP_v7bT2_ReConv']
-    for i, test in enumerate(test_yaml):
-        print(i, test)
+    if(not args.weights):
+        test_yaml = ['yolop','YOLOP_v7b1','YOLOP_v7b2','YOLOP_v7b3','YOLOP_v7bT1','YOLOP_v7bT2', 'YOLOP_v7bT2_ReConv']
+        for i, test in enumerate(test_yaml):
+            print(i, test)
 
-        args.cfg = str(Path('cfg') / (test + '.yaml'))
-        args.save_dir = increment_path(Path(args.logDir)/ test, exist_ok=False)  # increment run
+            args.cfg = str(Path('cfg') / (test + '.yaml'))
+            args.save_dir = increment_path(Path(args.logDir)/ test, exist_ok=False)  # increment run
 
-        weights_path = Path('weights') / test / 'weights'
-        
-        weight_List = [weight for weight in weights_path.iterdir()]
-        args.weights = weight_List[-1]
-        
+            weights_path = Path('weights') / test / 'weights'
+            
+            weight_List = [weight for weight in weights_path.iterdir()]
+            args.weights = weight_List[-1]
+            
+            with torch.no_grad():
+                detect(args, device, test)
+    else:
+        args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
+        test = ''
         with torch.no_grad():
             detect(args, device, test)
-
-    # args.save_dir = increment_path(Path(args.logDir)/ args.dataset)  # increment run
-    # with torch.no_grad():
-    #     detect(args, device)
