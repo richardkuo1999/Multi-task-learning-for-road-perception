@@ -94,6 +94,7 @@ class MCnet(nn.Module):
 
 def parse_model(cfg):
     for i, (f, m, args) in enumerate(cfg):
+        # print(i,m)
         cfg[i][-2] = eval(m) if isinstance(m, str) else m
         if( isinstance(cfg[i][-1], list)):
             for j in range(len(cfg[i][-1])):
