@@ -198,11 +198,11 @@ if __name__ == '__main__':
     device = select_device(args.device)
     
     if(not args.weights):
-        test_yaml = ['yolop','YOLOP_v7b1','YOLOP_v7b2','YOLOP_v7b3','YOLOP_v7bT1','YOLOP_v7bT2', 'YOLOP_v7bT2_ReConv']
+        test_yaml = ['yolop(100k)','YOLOP_v7b3_B','YOLOP_v7b3_H','YOLOP_v7b3_N','YOLOP_v7bT2']
         for i, test in enumerate(test_yaml):
             print(i, test)
 
-            args.cfg = str(Path('cfg') / (test + '.yaml'))
+            args.cfg = str(Path('cfg') / (test.split('(')[0] + '.yaml'))
             args.save_dir = increment_path(Path(args.logDir)/ test, exist_ok=False)  # increment run
 
             weights_path = Path('weights') / test / 'weights'
