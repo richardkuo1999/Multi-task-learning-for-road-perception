@@ -176,7 +176,7 @@ if __name__ == '__main__':
                                                     help='model.pth path(s)')
     parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--source', type=str, default='inference/images', 
+    parser.add_argument('--source', type=str, default='inference/videos', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
@@ -188,8 +188,6 @@ if __name__ == '__main__':
                                     help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
-    parser.add_argument('--save-dir', type=str, default='inference/output', 
-                                                help='directory to save results')
     parser.add_argument('--draw', type=bool, default= True)
     parser.add_argument('--augment', action='store_true',help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
