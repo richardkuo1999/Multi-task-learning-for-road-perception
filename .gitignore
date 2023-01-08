@@ -7,7 +7,7 @@ inference/
 dataset/
 datasets/
 runs/
-weights/
+weights
 
 *.pth
 *.pt
