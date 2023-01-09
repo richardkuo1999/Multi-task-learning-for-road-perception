@@ -13,7 +13,7 @@ import torch
 
 
 from utils.loss import get_loss
-from models.YOLOP import get_net
+from models.YOLOP import Model
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device, time_synchronized
 from utils.plot import plot_one_box,show_seg_result,plot_img_and_mask,plot_images

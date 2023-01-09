@@ -16,7 +16,8 @@ ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from utils.metrics import  SegmentationMetric
 from utils.autoanchor import check_anchor_order
-from utils.torch_utils import time_synchronized, initialize_weights, model_info
+from utils.torch_utils import time_synchronized, initialize_weights, model_info,\
+                            select_device
 from utils.general import make_divisible
 from torch.nn import Upsample
 from models.common import *
@@ -36,6 +37,7 @@ class Model(nn.Module):
 
         # Define model
         ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
+        self.HeadOut = self.yaml['HeadOut']
         if Det_nc or Lane_nc or Det_nc:
             logger.info(f"Overriding model.yaml Det_nc={self.yaml['Det_nc']} with nc={Det_nc}")
             logger.info(f"Overriding model.yaml Lane_nc={self.yaml['Lane_nc']} with nc={Lane_nc}")
@@ -78,24 +80,22 @@ class Model(nn.Module):
         cache = []
         out = []
         det_out = None
-        Da_fmap = []
-        LL_fmap = []
         # print(x.size())
         for i, block in enumerate(self.model):
-            print(i, block)
-            if block.from_ != -1:
-                x = cache[block.from_] if isinstance(block.from_, int) else [x if j == -1 else cache[j] for j in block.from_]       #calculate concat detect
+            # print(i, block)
+            if block.f != -1:
+                x = cache[block.f] if isinstance(block.f, int) else [x if j == -1 else cache[j] for j in block.f]       #calculate concat detect
             x = block(x)
             # try:
             #     print(x.size())
             # except:
             #     pass
-            if i in self.seg_out_idx:     #save driving area segment result
+            if i in self.HeadOut[1:]:     #save driving area segment result
                 m=nn.Sigmoid()
                 out.append(m(x))
-            if i == self.detector_index:
+            if i == self.HeadOut[0]:
                 det_out = x
-            cache.append(x if block.index in self.save else None)
+            cache.append(x if block.i in self.save else None)
         out.insert(0,det_out)
         return out ##det_out, da_seg_out,ll_seg_out
             
@@ -103,7 +103,7 @@ class Model(nn.Module):
         # https://arxiv.org/abs/1708.02002 section 3.3
         # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
         # m = self.model[-1]  # Detect() module
-        m = self.model[self.detector_index]  # Detect() module
+        m = self.model[self.HeadOut[0]]  # Detect() module
         for mi, s in zip(m.m, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
             b.data[:, 4] += math.log(8 / (640 / s) ** 2)  # obj (8 objects per 640 image)
@@ -115,8 +115,7 @@ class Model(nn.Module):
 
 def parse_model(d, ch):
     logger.info('\n%3s%18s%3s%10s  %-40s%-30s' % ('', 'from', 'n', 'params', 'module', 'arguments'))
-    anchors, HeadOut, gd, gw = d['anchors'], d['HeadOut'], \
-                                d['depth_multiple'], d['width_multiple']
+    anchors, gd, gw = d['anchors'], d['depth_multiple'], d['width_multiple']
     Det_nc, Lane_nc, driveArea_nc = d['Det_nc'], d['Lane_nc'], d['driveArea_nc']
     na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  # number of anchors
     no = na * (Det_nc + 5)  # number of outputs = anchors * (classes + 5)
@@ -137,8 +136,8 @@ def parse_model(d, ch):
         if m in [nn.Conv2d, Conv, RepConv, SPP, SPPCSPC, Focus, 
                 Bottleneck, BottleneckCSP]:
             c1, c2 = ch[f], args[0]
-            if c2 != no:  # if not output
-                c2 = make_divisible(c2 * gw, 8)
+            # if c2 != no:  # if not output
+            #     c2 = make_divisible(c2 * gw, 8)
 
             args = [c1, c2, *args[1:]]
             if m in [SPPCSPC, BottleneckCSP]:
@@ -187,15 +186,13 @@ if __name__ == "__main__":
     # from torch.utils.tensorboard import SummaryWriter
     # cfg = 'F:/ITRI/YOLOP/cfg/YOLOP_v7b3.yaml'
     cfg = 'F:/ITRI/YOLOP/cfg/test.yaml'
-    model = Model(cfg)
+    device = select_device('', batch_size=1)
+    model = Model(cfg).to(device)
     
-    input_ = torch.randn((1, 3, 640, 640))
-    gt_ = torch.rand((1, 2, 640, 640))
-    metric = SegmentationMetric(2)
-    model_out = model(input_)
+    input = torch.randn((1, 3, 640, 640)).to(device, non_blocking=True)
+    model_out = model(input)
+    print(model_out)
     detects, dring_area_seg, lane_line_seg = model_out
-    for det in detects:
-        print(det.shape)
-    print(dring_area_seg.shape)
-    print(lane_line_seg.shape)
- 
+    print('detects:', len(detects),detects[0].size())
+    print('dring_area_seg:', dring_area_seg.size())
+    print('lane_line_seg:', lane_line_seg.size())

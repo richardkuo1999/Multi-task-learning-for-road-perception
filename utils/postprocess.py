@@ -19,9 +19,9 @@ def build_targets(hyp, predictions, targets, model):
     t [index, class, x, y, w, h, head_index]
     '''
     # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
-    det = model.model[model.detector_index]  # Detect() module
+    det = model.model[model.HeadOut[0]]  # Detect() module
     # print(type(model))
-    # det = model.model[model.detector_index]
+    # det = model.model[model.HeadOut[0]]
     # print(type(det))
     na, nt = det.na, targets.shape[0]  # number of anchors, targets
     tcls, tbox, indices, anch = [], [], [], []
