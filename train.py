@@ -23,7 +23,7 @@ from test import test
 from utils.autoanchor import check_anchors
 from utils.torch_utils import select_device
 from utils.datasets import create_dataloader
-from models.YOLOP import get_net, get_optimizer
+from models.YOLOP import get_optimizer, Model
 from utils.general import colorstr, set_logging, increment_path, write_log,\
                          val_tensorboard, AverageMeter
 
@@ -65,7 +65,7 @@ def main(args, hyp, device, writer):
     # build up model
     print("begin to build up model...")
     # model = Model(args.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
-    model = get_net(args.cfg).to(device)
+    model = Model(args.cfg).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)
