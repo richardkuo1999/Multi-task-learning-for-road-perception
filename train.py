@@ -61,6 +61,8 @@ def main(args, hyp, device, writer):
         yaml.dump(vars(args), f, sort_keys=False)
   
 
+    with open(args.data) as f:
+        data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
 
     # build up model
     print("begin to build up model...")
@@ -196,7 +198,6 @@ def main(args, hyp, device, writer):
                 global_steps += 1
 
         lr_scheduler.step()
-        
         # evaluate on validation set
         if (epoch > args.val_start and (epoch % args.val_freq == 0 
                                                     or epoch == maxEpochs)):
@@ -247,7 +248,9 @@ def parse_args():
                             help='hyperparameter path')
                             # yolop_backbone
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
-                                            help='model.yaml path')
+                                            help='model yaml path')
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
+                                            help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
     parser.add_argument('--saveJson', type=bool, default=False)

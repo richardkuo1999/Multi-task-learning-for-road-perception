@@ -409,7 +409,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Test Multitask network')
     parser.add_argument('--hyp', type=str, default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7bT2.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                                 help='model.yaml path')
     parser.add_argument('--logDir', type=str, default='runs/test',
                             help='log directory')
@@ -432,7 +432,7 @@ def parse_args():
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
 
-    parser.add_argument('--dataRoot', type=str, default='F:/dataset/BDD100k_10k/bdd100k_images_10k/bdd100k/images/10k', 
+    parser.add_argument('--dataRoot', type=str, default='F:/dataset/BDD100k_10k', 
                             help='the path of images folder')
 
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
@@ -474,7 +474,7 @@ if __name__ == '__main__':
 
     # build up model
     print("begin to build up model...")
-    model = get_net(args.cfg).to(device)
+    model = Model(args.cfg).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)

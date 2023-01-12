@@ -38,6 +38,7 @@ class Model(nn.Module):
         # Define model
         ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
         self.HeadOut = self.yaml['HeadOut']
+        self.Det_nc = self.yaml['Det_nc']
         if Det_nc or Lane_nc or Det_nc:
             logger.info(f"Overriding model.yaml Det_nc={self.yaml['Det_nc']} with nc={Det_nc}")
             logger.info(f"Overriding model.yaml Lane_nc={self.yaml['Lane_nc']} with nc={Lane_nc}")
@@ -49,26 +50,24 @@ class Model(nn.Module):
             logger.info(f'Overriding model.yaml anchors with anchors={anchors}')
             self.yaml['anchors'] = round(anchors)  # override yaml value
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
-        # self.names = [str(i) for i in range(self.yaml['nc'])]  # default names
+        self.names = [str(i) for i in range(self.Det_nc)]  # default names
         # print([x.shape for x in self.forward(torch.zeros(1, ch, 64, 64))])
 
         # Build strides, anchors
-        m = self.model[-1]  # Detect()
-        if isinstance(m, Detect):
-            s = 256  # 2x min stride
-            m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))])  # forward
+        m = self.model[self.HeadOut[0]]  # Detect()
+        if isinstance(m, Detect) or isinstance(m, IDetect):
+            s = 128  # 2x min stride
+            # for x in self.forward(torch.zeros(1, 3, s, s)):
+            #     print (x.shape)
+            # with torch.no_grad():
+            model_out = self.forward(torch.zeros(1, 3, s, s))
+            detects, _, _= model_out
+            m.stride = torch.tensor([s / x.shape[-2] for x in detects])  # forward
+            # print("stride"+str(Detector.stride ))
+            m.anchors /= m.stride.view(-1, 1, 1)  # Set the anchors for the corresponding scale
             check_anchor_order(m)
-            m.anchors /= m.stride.view(-1, 1, 1)
             self.stride = m.stride
-            self._initialize_biases()  # only run once
-            # print('Strides: %s' % m.stride.tolist())
-        if isinstance(m, IDetect):
-            s = 256  # 2x min stride
-            m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))])  # forward
-            check_anchor_order(m)
-            m.anchors /= m.stride.view(-1, 1, 1)
-            self.stride = m.stride
-            self._initialize_biases()  # only run once
+            self._initialize_biases()# only run once
             # print('Strides: %s' % m.stride.tolist())
 
         # Init weights, biases
