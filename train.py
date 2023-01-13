@@ -66,9 +66,7 @@ def main(args, hyp, device, writer):
     Det_class = data_dict['Det_names']
     Lane_class = data_dict['Lane_names']
     DriveArea_class = data_dict['DriveArea_names']
-    Det_nc = len(Det_class) # number of classes
-    Lane_nc = len(Lane_class) # number of classes
-    driveArea_nc = len(DriveArea_class) # number of classes
+    nc = [len(Det_class), len(Lane_class), len(DriveArea_class)]
     prefix = colorstr('Det_class: ')
     logger.info(f"{prefix}{Det_class}")
     prefix = colorstr('Lane_class: ')
@@ -79,7 +77,7 @@ def main(args, hyp, device, writer):
     # build up model
     print("begin to build up model...")
     # model = Model(args.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
-    model = Model(args.cfg).to(device)
+    model = Model(args.cfg, nc).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)

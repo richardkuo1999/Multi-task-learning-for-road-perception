@@ -6,18 +6,18 @@ Project Description
 
 ### Todo
 
-- [ ] deal with dataset(don't convert evert time)  
 - [ ] EMA model  
 - [ ] multi gpu  
 
 ### In Progress
 
-- [ ] build up model method change to YOLOv7 type  
 - [ ] let Lane Line  Segment Head can be classified  
 - [ ] modify Loss function  
 
 ### Done ✓
 
+- [x] 1/13 maintain dataset use yaml  
+- [x] 1/13 build up model method change to YOLOv7 type  
 - [x] 12/18 dataloader multi class  
 - [x] 12/21 get MACs FLOTs  
 - [x] 12/09 Add profiler  

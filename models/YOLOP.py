@@ -26,7 +26,7 @@ from models.common import *
 logger = logging.getLogger(__name__)
 
 class Model(nn.Module):
-    def __init__(self, cfg, ch=3, Det_nc=None, Lane_nc=None, driveArea_nc=None, anchors=None):
+    def __init__(self, cfg, nc, ch=3, anchors=None):
         super(Model, self).__init__()
         if isinstance(cfg, dict):
             self.yaml = cfg  # model dict
@@ -39,13 +39,13 @@ class Model(nn.Module):
         ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
         self.HeadOut = self.yaml['HeadOut']
         self.Det_nc = self.yaml['Det_nc']
-        if Det_nc or Lane_nc or Det_nc:
-            logger.info(f"Overriding model.yaml Det_nc={self.yaml['Det_nc']} with nc={Det_nc}")
-            logger.info(f"Overriding model.yaml Lane_nc={self.yaml['Lane_nc']} with nc={Lane_nc}")
-            logger.info(f"Overriding model.yaml driveArea_nc={self.yaml['driveArea_nc']} with nc={driveArea_nc}")
-            self.yaml['Det_nc'] = Det_nc  # override yaml value
-            self.yaml['Lane_nc'] = Lane_nc  # override yaml value
-            self.yaml['driveArea_nc'] = driveArea_nc  # override yaml value
+        if nc:
+            logger.info(f"Overriding model.yaml Det_nc={self.yaml['Det_nc']} with nc={nc[0]}")
+            logger.info(f"Overriding model.yaml Lane_nc={self.yaml['Lane_nc']} with nc={nc[1]}")
+            logger.info(f"Overriding model.yaml driveArea_nc={self.yaml['driveArea_nc']} with nc={nc[2]}")
+            self.yaml['Det_nc'] = nc[0]  # override yaml value
+            self.yaml['Lane_nc'] = nc[1]  # override yaml value
+            self.yaml['driveArea_nc'] = nc[2]  # override yaml value
         if anchors:
             logger.info(f'Overriding model.yaml anchors with anchors={anchors}')
             self.yaml['anchors'] = round(anchors)  # override yaml value
