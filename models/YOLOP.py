@@ -82,7 +82,7 @@ class Model(nn.Module):
         det_out = None
         # print(x.size())
         for i, block in enumerate(self.model):
-            # print(i, block)
+            print(i, block)
             if block.f != -1:
                 x = cache[block.f] if isinstance(block.f, int) else [x if j == -1 else cache[j] for j in block.f]       #calculate concat detect
             x = block(x)
@@ -156,7 +156,7 @@ def parse_model(d, ch):
         else:
             c2 = ch[f]
 
-        m_ = nn.Sequential(*[m(*args) for _ in range(n)]) if n > 1 else m(*args)  # module
+        m_ = nn.Sequential(*[m(*args) for _ in range(n)]) if n > 1 else m(*args)
         t = str(m)[8:-2].replace('__main__.', '')  # module type
         np = sum([x.numel() for x in m_.parameters()])  # number params
         m_.i, m_.f, m_.type, m_.np = i, f, t, np  # attach index, 'from' index, type, number params
@@ -183,9 +183,7 @@ def get_optimizer(hyp, model):
 
 
 if __name__ == "__main__":
-    # from torch.utils.tensorboard import SummaryWriter
-    # cfg = 'F:/ITRI/YOLOP/cfg/YOLOP_v7b3.yaml'
-    cfg = 'F:/ITRI/YOLOP/cfg/yolop.yaml'
+    cfg = 'F:/ITRI/YOLOP/cfg/YOLOP_v7bT2_ReConv.yaml'
     device = select_device('', batch_size=1)
 
 
