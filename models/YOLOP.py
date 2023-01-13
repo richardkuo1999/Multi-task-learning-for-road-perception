@@ -67,7 +67,8 @@ class Model(nn.Module):
             m.anchors /= m.stride.view(-1, 1, 1)  # Set the anchors for the corresponding scale
             check_anchor_order(m)
             self.stride = m.stride
-            self._initialize_biases()# only run once
+            if nc[0] > 1:
+                self._initialize_biases()# only run once
             # print('Strides: %s' % m.stride.tolist())
 
         # Init weights, biases
@@ -186,7 +187,14 @@ if __name__ == "__main__":
     # cfg = 'F:/ITRI/YOLOP/cfg/YOLOP_v7b3.yaml'
     cfg = 'F:/ITRI/YOLOP/cfg/test.yaml'
     device = select_device('', batch_size=1)
-    model = Model(cfg).to(device)
+
+
+    Det_class = 1
+    Lane_class = 1
+    DriveArea_class = 1
+    nc = [Det_class, Lane_class, DriveArea_class]
+
+    model = Model(cfg, nc).to(device)
     
     input = torch.randn((1, 3, 640, 640)).to(device, non_blocking=True)
     model_out = model(input)
