@@ -63,6 +63,18 @@ def main(args, hyp, device, writer):
 
     with open(args.data) as f:
         data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
+    Det_class = data_dict['Det_names']
+    Lane_class = data_dict['Lane_names']
+    DriveArea_class = data_dict['DriveArea_names']
+    Det_nc = len(Det_class) # number of classes
+    Lane_nc = len(Lane_class) # number of classes
+    driveArea_nc = len(DriveArea_class) # number of classes
+    prefix = colorstr('Det_class: ')
+    logger.info(f"{prefix}{Det_class}")
+    prefix = colorstr('Lane_class: ')
+    logger.info(f"{prefix}{Lane_class}")
+    prefix = colorstr('DriveArea_class: ')
+    logger.info(f"{prefix}{DriveArea_class}")
 
     # build up model
     print("begin to build up model...")
@@ -94,12 +106,12 @@ def main(args, hyp, device, writer):
     normalize = {'mean':[0.485, 0.456, 0.406], 
                  'std':[0.229, 0.224, 0.225]}
     
-    train_loader, train_dataset = create_dataloader(args, hyp, \
-                                    args.train_batch_size, normalize)
+    train_loader, train_dataset = create_dataloader(args, hyp, data_dict['train'],\
+                                                    args.train_batch_size, normalize)
     num_batch = len(train_loader)
     
-    valid_loader, valid_dataset = create_dataloader(args, hyp, 
-                                                args.test_batch_size, normalize,  
+    valid_loader, valid_dataset = create_dataloader(args, hyp, data_dict['val'], \
+                                                args.test_batch_size, normalize, \
                                                 is_train=False, shuffle=False)
 
     print('load data finished')

@@ -27,7 +27,7 @@ id_dict_single = {'car': 0, 'bus': 1, 'truck': 2,'train': 3}
 single_cls = True       # just detect vehicle
 
 
-def create_dataloader(args, hyp, batch_size, normalize, is_train=True, shuffle=True):
+def create_dataloader(args, hyp, data_dict, batch_size, normalize, is_train=True, shuffle=True):
     normalize = transforms.Normalize(
             normalize['mean'], normalize['std']
         )
@@ -35,8 +35,8 @@ def create_dataloader(args, hyp, batch_size, normalize, is_train=True, shuffle=T
     datasets = eval(args.dataset)(
         args=args,
         hyp=hyp,
+        data_dict=data_dict,
         is_train=is_train,
-        inputsize=args.img_size,
         transform=transforms.Compose([
             transforms.ToTensor(),
             normalize,
@@ -62,7 +62,7 @@ class AutoDriveDataset(Dataset):
     """
     A general Dataset for some common function
     """
-    def __init__(self, args, hyp, is_train, inputsize=640, transform=None):
+    def __init__(self, args, hyp, data_dict, is_train, transform=None):
         """
         initial all the characteristic
 
@@ -75,20 +75,19 @@ class AutoDriveDataset(Dataset):
         None
         """
         self.is_train = is_train
-
-        self.args = args
         self.hyp = hyp
+        self.data_dict = data_dict
         self.transform = transform
-        self.inputsize = inputsize
+        self.inputsize = args.img_size
+        self.num_seg_class = args.num_seg_class
         self.shapes = np.array(args.org_img_size)
 
         # Data Root
-        indicator = 'train' if is_train else 'val'
-        self.img_root = Path(args.dataRoot) / 'images'/ indicator
-        self.label_root = Path(args.dataRoot) /'labels' / 'bdd_Object_gt' / indicator
-        self.mask_root = Path(args.dataRoot) /'labels' / 'bdd_seg_gt' / indicator
-        self.lane_root = Path(args.dataRoot) /'labels' / 'bdd_lane_gt' / indicator
-
+        self.img_root = Path(data_dict[0])
+        self.label_root = Path(data_dict[1])
+        self.mask_root = Path(data_dict[2])
+        self.lane_root = Path(data_dict[3])
+            
         self.img_list = self.img_root.iterdir()
         self.Tensor = transforms.ToTensor()
     
@@ -225,7 +224,7 @@ class AutoDriveDataset(Dataset):
         # if idx == 0:
         #     print(seg_label[:,:,0])
         # TODO
-        if self.args.num_seg_class == 3:
+        if self.num_seg_class == 3:
             _,seg0 = cv2.threshold(seg_label[:,:,0],128,255,cv2.THRESH_BINARY)
             _,seg1 = cv2.threshold(seg_label[:,:,1],1,255,cv2.THRESH_BINARY)
             _,seg2 = cv2.threshold(seg_label[:,:,2],1,255,cv2.THRESH_BINARY)
@@ -241,7 +240,7 @@ class AutoDriveDataset(Dataset):
         # seg_label /= 255
         # seg0 = self.Tensor(seg0)
         # TODO
-        if self.args.num_seg_class == 3:
+        if self.num_seg_class == 3:
             seg0 = self.Tensor(seg0)
         seg1 = self.Tensor(seg1)
         seg2 = self.Tensor(seg2)
@@ -251,7 +250,7 @@ class AutoDriveDataset(Dataset):
         lane2 = self.Tensor(lane2)
         # TODO
         # seg_label = torch.stack((seg2[0], seg1[0]),0)
-        if self.args.num_seg_class == 3:
+        if self.num_seg_class == 3:
             seg_label = torch.stack((seg0[0],seg1[0],seg2[0]),0)
         else:
             seg_label = torch.stack((seg2[0], seg1[0]),0)
@@ -285,8 +284,8 @@ class AutoDriveDataset(Dataset):
         return torch.stack(img, 0), [torch.cat(label_det, 0), torch.stack(label_seg, 0), torch.stack(label_lane, 0)], paths, shapes
 
 class BddDataset(AutoDriveDataset):
-    def __init__(self, args, hyp, is_train, inputsize, transform=None):
-        super().__init__(args, hyp, is_train, inputsize, transform)
+    def __init__(self, args, hyp, data_dict, is_train, transform=None):
+        super().__init__(args, hyp, data_dict, is_train, transform)
         self.db = self.__get_db()
         
     def __get_db(self):
