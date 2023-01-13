@@ -140,7 +140,7 @@ def parse_model(d, ch):
             #     c2 = make_divisible(c2 * gw, 8)
 
             args = [c1, c2, *args[1:]]
-            if m in [SPPCSPC, BottleneckCSP]:
+            if m in [SPPCSPC]:
                 args.insert(2, n)  # number of repeats
                 n = 1
         elif m is nn.BatchNorm2d:
@@ -185,7 +185,7 @@ def get_optimizer(hyp, model):
 if __name__ == "__main__":
     # from torch.utils.tensorboard import SummaryWriter
     # cfg = 'F:/ITRI/YOLOP/cfg/YOLOP_v7b3.yaml'
-    cfg = 'F:/ITRI/YOLOP/cfg/test.yaml'
+    cfg = 'F:/ITRI/YOLOP/cfg/yolop.yaml'
     device = select_device('', batch_size=1)
 
 
