@@ -82,7 +82,7 @@ class Model(nn.Module):
         det_out = None
         # print(x.size())
         for i, block in enumerate(self.model):
-            print(i, block)
+            # print(i, block)
             if block.f != -1:
                 x = cache[block.f] if isinstance(block.f, int) else [x if j == -1 else cache[j] for j in block.f]       #calculate concat detect
             x = block(x)
