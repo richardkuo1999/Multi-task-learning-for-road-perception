@@ -1,0 +1,16 @@
+train: 
+    - F:/dataset/BDD100k_10k/images/train               # image
+    - F:/dataset/BDD100k_10k/labels/bdd_Object_gt/train # Object Detection
+    - F:/dataset/BDD100k_10k/labels/bdd_seg_gt/train    # Drivable Area Detection
+    - F:/dataset/BDD100k_10k/labels/bdd_lane_gt/train   # Lane Detection
+val: 
+    - F:/dataset/BDD100k_10k/images/val               # image
+    - F:/dataset/BDD100k_10k/labels/bdd_Object_gt/val # object detection
+    - F:/dataset/BDD100k_10k/labels/bdd_seg_gt/val    # Drivable Area Detection
+    - F:/dataset/BDD100k_10k/labels/bdd_lane_gt/val   # Lane Detection
+test: ./inference/videos
+
+# class names
+Det_names: [ 'car' ]
+Lane_names: [ 'lane' ]
+DriveArea_names: [ 'drivable' ]

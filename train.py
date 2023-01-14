@@ -23,7 +23,7 @@ from test import test
 from utils.autoanchor import check_anchors
 from utils.torch_utils import select_device
 from utils.datasets import create_dataloader
-from models.YOLOP import get_net, get_optimizer
+from models.YOLOP import get_optimizer, Model
 from utils.general import colorstr, set_logging, increment_path, write_log,\
                          val_tensorboard, AverageMeter
 
@@ -61,11 +61,23 @@ def main(args, hyp, device, writer):
         yaml.dump(vars(args), f, sort_keys=False)
   
 
+    with open(args.data) as f:
+        data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
+    Det_class = data_dict['Det_names']
+    Lane_class = data_dict['Lane_names']
+    DriveArea_class = data_dict['DriveArea_names']
+    nc = [len(Det_class), len(Lane_class), len(DriveArea_class)]
+    prefix = colorstr('Det_class: ')
+    logger.info(f"{prefix}{Det_class}")
+    prefix = colorstr('Lane_class: ')
+    logger.info(f"{prefix}{Lane_class}")
+    prefix = colorstr('DriveArea_class: ')
+    logger.info(f"{prefix}{DriveArea_class}")
 
     # build up model
     print("begin to build up model...")
     # model = Model(args.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
-    model = get_net(args.cfg).to(device)
+    model = Model(args.cfg, nc).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)
@@ -92,12 +104,12 @@ def main(args, hyp, device, writer):
     normalize = {'mean':[0.485, 0.456, 0.406], 
                  'std':[0.229, 0.224, 0.225]}
     
-    train_loader, train_dataset = create_dataloader(args, hyp, \
-                                    args.train_batch_size, normalize)
+    train_loader, train_dataset = create_dataloader(args, hyp, data_dict['train'],\
+                                                    args.train_batch_size, normalize)
     num_batch = len(train_loader)
     
-    valid_loader, valid_dataset = create_dataloader(args, hyp, 
-                                                args.test_batch_size, normalize,  
+    valid_loader, valid_dataset = create_dataloader(args, hyp, data_dict['val'], \
+                                                args.test_batch_size, normalize, \
                                                 is_train=False, shuffle=False)
 
     print('load data finished')
@@ -112,7 +124,7 @@ def main(args, hyp, device, writer):
                                                     imgsz=min(args.img_size))
     else:
         logger.info("anchors loaded successfully")
-        det = model.model[model.detector_index]
+        det = model.model[model.HeadOut[0]]
         logger.info(str(det.anchors))
 
 
@@ -196,7 +208,6 @@ def main(args, hyp, device, writer):
                 global_steps += 1
 
         lr_scheduler.step()
-        
         # evaluate on validation set
         if (epoch > args.val_start and (epoch % args.val_freq == 0 
                                                     or epoch == maxEpochs)):
@@ -246,8 +257,10 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3_b.yaml', 
-                                            help='model.yaml path')
+    parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
+                                            help='model yaml path')
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
+                                            help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
     parser.add_argument('--saveJson', type=bool, default=False)
@@ -262,9 +275,9 @@ def parse_args():
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--train_batch_size', type=int, default=30, 
+    parser.add_argument('--train_batch_size', type=int, default=10, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--test_batch_size', type=int, default=30, 
+    parser.add_argument('--test_batch_size', type=int, default=10, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')

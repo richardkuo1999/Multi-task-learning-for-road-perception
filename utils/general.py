@@ -45,7 +45,11 @@ def write_log(results_file, msg):
 def clean_str(s):
     # Cleans a string by replacing special characters with underscore _
     return re.sub(pattern="[|@#!¡·$€%&()=?¿^*;:,¨´><+]", repl="_", string=s)
-         
+
+def make_divisible(x, divisor):
+    # Returns x evenly divisible by divisor
+    return math.ceil(x / divisor) * divisor
+          
 def colorstr(*input):
     # Colors a string https://en.wikipedia.org/wiki/ANSI_escape_code, i.e.  colorstr('blue', 'hello world')
     *opt, string = input if len(input) > 1 else ('blue', 'bold', input[0])  # color arguments, string

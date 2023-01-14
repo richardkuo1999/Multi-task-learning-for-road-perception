@@ -9,7 +9,7 @@ import torch
 import torchvision.transforms as transforms
 
 
-from models.YOLOP import get_net
+from models.YOLOP import Model
 from utils.datasets import LoadImages
 from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
@@ -39,7 +39,7 @@ def detect(args, device, expName):
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model
-    model = get_net(args.cfg)
+    model = Model(args.cfg)
     checkpoint = torch.load(args.weights, map_location= device)
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
@@ -174,7 +174,7 @@ if __name__ == '__main__':
                             help='log directory')
     parser.add_argument('--weights', type=str, default='', 
                                                     help='model.pth path(s)')
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                                     help='model.yaml path')
     parser.add_argument('--source', type=str, default='inference/videos', 
                                                     help='source')  
