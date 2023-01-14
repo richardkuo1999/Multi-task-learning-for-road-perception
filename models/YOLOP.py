@@ -67,8 +67,8 @@ class Model(nn.Module):
             m.anchors /= m.stride.view(-1, 1, 1)  # Set the anchors for the corresponding scale
             check_anchor_order(m)
             self.stride = m.stride
-            if nc[0] > 1:
-                self._initialize_biases()# only run once
+            # if nc[0] > 1:
+            self._initialize_biases()# only run once
             # print('Strides: %s' % m.stride.tolist())
 
         # Init weights, biases
