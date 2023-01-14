@@ -46,7 +46,7 @@ def main(args, hyp, device, writer):
     logger.info(colorstr('hyperparameter: ') + ', '\
                                 .join(f'{k}={v}' for k, v in hyp.items()))
     save_dir, maxEpochs = Path(args.save_dir), args.epochs
-    begin_epoch = 0 
+    begin_epoch = 1
     global_steps = 0
 
     # Directories
