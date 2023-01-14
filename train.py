@@ -104,13 +104,13 @@ def main(args, hyp, device, writer):
     normalize = {'mean':[0.485, 0.456, 0.406], 
                  'std':[0.229, 0.224, 0.225]}
     
-    train_loader, train_dataset = create_dataloader(args, hyp, data_dict['train'],\
-                                                    args.train_batch_size, normalize)
+    train_loader, train_dataset = create_dataloader(args, hyp, data_dict, \
+                                                args.train_batch_size, normalize)
     num_batch = len(train_loader)
     
-    valid_loader, valid_dataset = create_dataloader(args, hyp, data_dict['val'], \
-                                                args.test_batch_size, normalize, \
-                                                is_train=False, shuffle=False)
+    valid_loader, valid_dataset = create_dataloader(args, hyp, data_dict,\
+                                                args.train_batch_size, normalize, \
+                                                    is_train=False, shuffle=False)
 
     print('load data finished')
     
@@ -259,7 +259,7 @@ def parse_args():
                             # yolop_backbone
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/muti.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
