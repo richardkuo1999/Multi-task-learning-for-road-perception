@@ -288,9 +288,9 @@ def parse_args():
     parser.add_argument('--iou_thres', type=float, default=0.6, 
                             help='IOU threshold for NMS')
     parser.add_argument('--num_seg_class', type=int, default=2)
-    parser.add_argument('--val_start', type=int, default=20, 
+    parser.add_argument('--val_start', type=int, default=0, 
                             help='start do validation')
-    parser.add_argument('--val_freq', type=int, default=5, 
+    parser.add_argument('--val_freq', type=int, default=1, 
                             help='How many epochs do one time validation')
     # dataset   BDD100k_10k
     parser.add_argument('--dataset', type=str, default='BddDataset', 
