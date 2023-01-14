@@ -2,6 +2,7 @@ import cv2
 import yaml
 import json
 import random
+import logging
 import argparse
 import numpy as np
 from PIL import Image
@@ -19,7 +20,7 @@ from utils.torch_utils import select_device, time_synchronized
 from utils.plot import plot_one_box,show_seg_result,plot_img_and_mask,plot_images
 from utils.metrics import ConfusionMatrix, SegmentationMetric, ap_per_class,\
                             output_to_target, ap_per_class
-from utils.general import increment_path, write_log,non_max_suppression,\
+from utils.general import colorstr, increment_path, write_log,non_max_suppression,\
                         check_img_size,scale_coords,xyxy2xywh,xywh2xyxy,\
                         box_iou,coco80_to_coco91_class,AverageMeter
 
@@ -34,6 +35,7 @@ DRIVABLE_ONLY = False      # Only train da_segmentation task
 LANE_ONLY = False          # Only train ll_segmentation task
 DET_ONLY = False 
 
+logger = logging.getLogger(__name__)
 
 def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
               results_file, logger=None, device='cpu'):
@@ -411,6 +413,8 @@ def parse_args():
                             help='hyperparameter path')
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                                 help='model.yaml path')
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
+                                            help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/test',
                             help='log directory')
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
@@ -422,7 +426,7 @@ def parse_args():
     parser.add_argument('--allplot', type=bool, default=False)
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='./weights/epoch-295.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', type=str, default='./weights/epoch-30.pth', help='model.pth path(s)')
     parser.add_argument('--test_batch_size', type=int, default=1, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
@@ -453,6 +457,16 @@ if __name__ == '__main__':
     with open(args.hyp) as f:
         hyp = yaml.load(f, Loader=yaml.SafeLoader)  # load hyps
 
+    with open(args.data) as f:
+        data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
+    Det_class = data_dict['Det_names']
+    Lane_class = data_dict['Lane_names']
+    DriveArea_class = data_dict['DriveArea_names']
+    nc = [len(Det_class), len(Lane_class), len(DriveArea_class)]
+    logger.info(f"{colorstr('Det_class: ')}{Det_class}")
+    logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
+    logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+
     hyp.update({'seg_only':SEG_ONLY,'det_only':DET_ONLY,
                 'enc_seg_only':ENC_SEG_ONLY, 'enc_det_only':ENC_DET_ONLY,
                 'drivable_only':DRIVABLE_ONLY, 'lane_only':LANE_ONLY,
@@ -462,19 +476,10 @@ if __name__ == '__main__':
     results_file = args.save_dir / 'results.txt'
     args.save_dir.mkdir(parents=True, exist_ok=True)
 
-    
-    # Data loading
-    print("begin to load data")
-    normalize = {'mean':[0.485, 0.456, 0.406], 
-                 'std':[0.229, 0.224, 0.225]}
-    valid_loader, valid_dataset = \
-            create_dataloader(args, hyp,args.test_batch_size, normalize, is_train=False, shuffle=False)
-    print('load data finished')
-
 
     # build up model
     print("begin to build up model...")
-    model = Model(args.cfg).to(device)
+    model = Model(args.cfg, nc).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)
@@ -496,6 +501,15 @@ if __name__ == '__main__':
 
     epoch = 0 #special for test
     # Save run settings
+
+        # Data loading
+    print("begin to load data")
+    normalize = {'mean':[0.485, 0.456, 0.406], 
+                 'std':[0.229, 0.224, 0.225]}
+    valid_loader, valid_dataset = create_dataloader(args, hyp, data_dict, \
+                            args.test_batch_size, normalize, is_train=False, \
+                                                                shuffle=False)
+    print('load data finished')
 
     with open(args.save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)

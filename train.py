@@ -67,12 +67,9 @@ def main(args, hyp, device, writer):
     Lane_class = data_dict['Lane_names']
     DriveArea_class = data_dict['DriveArea_names']
     nc = [len(Det_class), len(Lane_class), len(DriveArea_class)]
-    prefix = colorstr('Det_class: ')
-    logger.info(f"{prefix}{Det_class}")
-    prefix = colorstr('Lane_class: ')
-    logger.info(f"{prefix}{Lane_class}")
-    prefix = colorstr('DriveArea_class: ')
-    logger.info(f"{prefix}{DriveArea_class}")
+    logger.info(f"{colorstr('Det_class: ')}{Det_class}")
+    logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
+    logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
 
     # build up model
     print("begin to build up model...")
@@ -92,7 +89,7 @@ def main(args, hyp, device, writer):
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         global_steps = checkpoint['global_steps']+1
-        msg = f'=> loaded checkpoint "{args.resume}"(epoch {begin_epoch})'
+        msg = f'{colorstr("=> loaded checkpoint")} "{args.resume}"(epoch {begin_epoch})'
         logger.info(msg)
         write_log(results_file, msg)
     print("finish build model")
@@ -141,7 +138,7 @@ def main(args, hyp, device, writer):
     num_warmup = max(round(hyp['warmup_epochs'] * num_batch), 1000)
     scaler = amp.GradScaler(enabled=device.type != 'cpu')
     
-    print('=> start training...')
+    print(colorstr('=> start training...'))
     for epoch in range(begin_epoch, maxEpochs+1):
 
         model.train()
@@ -232,7 +229,8 @@ def main(args, hyp, device, writer):
             # save checkpoint model and best model
             
             savepath = wdir / f'epoch-{epoch}.pth'
-            logger.info('=> saving checkpoint to {}'.format(savepath))
+            
+            logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
             ckpt = {
                 'epoch': epoch,
                 'model': args.name,
@@ -351,8 +349,7 @@ if __name__ == '__main__':
 
     # Train
     logger.info(args)
-    prefix = colorstr('tensorboard: ')
-    logger.info(f"{prefix}Start with 'tensorboard --logdir {args.logDir}'"+\
+    logger.info(f"{colorstr('tensorboard: ')}Start with 'tensorboard --logdir {args.logDir}'"+\
                                         ", view at http://localhost:6006/")
     writer = SummaryWriter(args.save_dir)  # Tensorboard
     
