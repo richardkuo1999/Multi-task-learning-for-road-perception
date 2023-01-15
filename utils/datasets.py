@@ -14,7 +14,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as transforms
 
-from utils.general import xyxy2xywh, convert, one_hot_it_v11_dice
+from utils.general import xyxy2xywh, xywhn2xyxy, convert, one_hot_it_v11_dice
 from utils.augmentations import augment_hsv, random_perspective, letterbox,\
                                  letterbox_for_img
 
@@ -73,7 +73,6 @@ class AutoDriveDataset(Dataset):
         self.data_dict = data_dict
         self.transform = transform
         self.inputsize = args.img_size
-        self.num_seg_class = args.num_seg_class
         self.shapes = np.array(args.org_img_size)
 
         self.Tensor = transforms.ToTensor()
@@ -85,15 +84,9 @@ class AutoDriveDataset(Dataset):
         self.lane_root = Path(dataSet[3])
         self.label_info = data_dict['Lane_names']
 
-        # self.img_list = self.img_root.iterdir()
         self.mask_list = self.mask_root.iterdir()
 
         self.db = []
-
-        self.scale_factor = hyp['scale_factor']
-        self.rotation_factor = hyp['rot_factor']
-        self.flip = hyp['flip']
-        self.color_rgb = hyp['color_rgb']
 
         # self.target_type = args.MODEL.TARGET_TYPE
         self.shapes = np.array(args.org_img_size)
@@ -134,26 +127,25 @@ class AutoDriveDataset(Dataset):
         cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
         cv2.warpAffine
         """
+        hyp = self.hyp
         data = self.db[idx]
+        resized_shape = max(self.inputsize) if isinstance(self.inputsize, list) \
+                                            else self.inputsize
+
         img = cv2.imread(data["image"], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        h0, w0 = img.shape[:2]  # orig hw
+
         seg_label = cv2.imread(data["mask"])
+
         lane_label = cv2.imread(data["lane"])
         lane_label = cv2.cvtColor(lane_label, cv2.COLOR_BGR2RGB)
         
-        # print(lane_label.shape)
-        # print(seg_label.shape)
-        resized_shape = self.inputsize
-        if isinstance(resized_shape, list):
-            resized_shape = max(resized_shape)
-        h0, w0 = img.shape[:2]  # orig hw
-        r = resized_shape / max(h0, w0)  # resize image to img_size
 
-        h, w = img.shape[:2]
-        
+        #resize
         (img, seg_label, lane_label), ratio, pad = letterbox((img, seg_label, lane_label),\
                                          resized_shape, auto=True, scaleup=self.is_train)
-        shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
+        h, w = img.shape[:2]
 
         
         det_label = data["label"]
@@ -163,37 +155,35 @@ class AutoDriveDataset(Dataset):
         if det_label.size > 0:
             # Normalized xywh to pixel xyxy format
             labels = det_label.copy()
-            labels[:, 1] = ratio[0] * w * (det_label[:, 1] - det_label[:, 3] / 2) + pad[0]  # pad width
-            labels[:, 2] = ratio[1] * h * (det_label[:, 2] - det_label[:, 4] / 2) + pad[1]  # pad height
-            labels[:, 3] = ratio[0] * w * (det_label[:, 1] + det_label[:, 3] / 2) + pad[0]
-            labels[:, 4] = ratio[1] * h * (det_label[:, 2] + det_label[:, 4] / 2) + pad[1]
-            
+            labels[:, 1:5] = xywhn2xyxy(labels[:, 1:5], ratio[0] * w, ratio[1] * h,\
+                                                         padw=pad[0], padh=pad[1])
+
+
         if self.is_train:
             combination = (img, seg_label, lane_label)
             (img, seg_label, lane_label), labels = random_perspective(
                 combination=combination,
                 targets=labels,
-                degrees=self.hyp['rot_factor'],
-                translate=self.hyp['translate'],
-                scale=self.hyp['scale_factor'],
-                shear=self.hyp['shear']
+                degrees=hyp['rot_factor'],
+                translate=hyp['translate'],
+                scale=hyp['scale_factor'],
+                shear=hyp['shear']
             )
             #print(labels.shape)
-            augment_hsv(img, hgain=self.hyp['hsv_h'], sgain=self.hyp['hsv_s'], vgain=self.hyp['hsv_v'])
+            augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
             # img, seg_label, labels = cutout(combination=combination, labels=labels)
 
-            if len(labels):
-                # convert xyxy to xywh
-                labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
+        if len(labels):
+            # convert xyxy to xywh
+            labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
 
-                # Normalize coordinates 0 - 1
-                labels[:, [2, 4]] /= img.shape[0]  # height
-                labels[:, [1, 3]] /= img.shape[1]  # width
+            # Normalize coordinates 0 - 1
+            labels[:, [2, 4]] /= img.shape[0]  # height
+            labels[:, [1, 3]] /= img.shape[1]  # width
 
-            # if self.is_train:
-            # random left-right flip
-            lr_flip = False
-            if lr_flip and random.random() < 0.5:
+        if self.is_train:
+        # random left-right flip
+            if random.random() < hyp['fliplr']:
                 img = np.fliplr(img)
                 seg_label = np.fliplr(seg_label)
                 lane_label = np.fliplr(lane_label)
@@ -201,22 +191,15 @@ class AutoDriveDataset(Dataset):
                     labels[:, 1] = 1 - labels[:, 1]
 
             # random up-down flip
-            ud_flip = False
-            if ud_flip and random.random() < 0.5:
+            if random.random() < hyp['flipud']:
                 img = np.flipud(img)
                 seg_label = np.flipud(seg_label)
                 lane_label = np.flipud(lane_label)
                 if len(labels):
                     labels[:, 2] = 1 - labels[:, 2]
         
-        else:
-            if len(labels):
-                # convert xyxy to xywh
-                labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
 
-                # Normalize coordinates 0 - 1
-                labels[:, [2, 4]] /= img.shape[0]  # height
-                labels[:, [1, 3]] /= img.shape[1]  # width
+
 
         labels_out = torch.zeros((len(labels), 6))
         if len(labels):
@@ -232,11 +215,12 @@ class AutoDriveDataset(Dataset):
         
         _,seg1 = cv2.threshold(seg_label,1,255,cv2.THRESH_BINARY)
         _,seg2 = cv2.threshold(seg_label,1,255,cv2.THRESH_BINARY_INV)
+        seg1 = self.Tensor(seg1)
+        seg2 = self.Tensor(seg2)
+        seg_label = torch.stack((seg2[0], seg1[0]),0)
 
 
         lane_label = one_hot_it_v11_dice(lane_label, self.label_info)
-
-
         # from PIL import Image
         # aaa = img.copy()
         # lane_label_bool = lane_label.copy().astype(dtype=bool)
@@ -244,16 +228,12 @@ class AutoDriveDataset(Dataset):
         #     aaa[lane_label_bool[:,:,i]] = self.label_info[list(self.label_info)[i]][:3]
         # aaa = Image.fromarray(aaa, "RGB")
         # aaa.show()
-
-        seg1 = self.Tensor(seg1)
-        seg2 = self.Tensor(seg2)
-        seg_label = torch.stack((seg2[0], seg1[0]),0)
-
         lane_label = self.Tensor(lane_label)
-        
 
-        target = [labels_out, seg_label, lane_label]
+
         img = self.transform(img)
+        target = [labels_out, seg_label, lane_label]
+        shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
         return img, target, data["image"], shapes
 

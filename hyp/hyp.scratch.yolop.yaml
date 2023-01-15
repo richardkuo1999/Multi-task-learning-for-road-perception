@@ -28,6 +28,8 @@ scale_factor: 0.25  # image scale (+/- gain)
 rot_factor: 10
 color_rgb: False
 flip: True
+flipud: 0.0  # image flip up-down (probability)
+fliplr: 0.5  # image flip left-right (probability)
 shear: 0.0  # image shear (+/- deg)
 wd: 0.0005
 nesterov: True
@@ -35,8 +37,7 @@ multi_head_lambda: None
 nms_conf_threshold: 0.001
 nms_iou_threshold: 0.6
 # perspective: 0.0  # image perspective (+/- fraction), range 0-0.001
-# flipud: 0.0  # image flip up-down (probability)
-# fliplr: 0.5  # image flip left-right (probability)
+
 # mosaic: 1.0  # image mosaic (probability)
 # mixup: 0.05  # image mixup (probability)
 # copy_paste: 0.0  # image copy paste (probability)

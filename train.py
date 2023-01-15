@@ -257,7 +257,7 @@ def parse_args():
                             # yolop_backbone
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/muti.yaml', 
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
