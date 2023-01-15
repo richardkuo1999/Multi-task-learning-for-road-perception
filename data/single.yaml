@@ -12,5 +12,8 @@ val:
 
 # class names
 Det_names: [ 'car' ]
-Lane_names: [ 'lane' ]
+# Lane_names: [ 'lane' ]
+Lane_names: {'background'    : [  0,   0,   0],
+             'lane' : [255,255, 255]
+            }
 DriveArea_names: [ 'drivable' ]

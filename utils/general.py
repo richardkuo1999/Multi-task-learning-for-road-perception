@@ -410,3 +410,18 @@ def addText2image(image, tag, fps):
                 cv2.putText(image, f'{tag},  FPS:{fps}', (30, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 3, 0)
                 return image
+
+def one_hot_it_v11_dice(label, label_info):
+    # return semantic_map -> [H, W, class_num]
+    semantic_map = []
+    # void = np.zeros(label.shape[:2])
+    for index, info in enumerate(label_info):
+        color = label_info[info][:3]
+        # colour_map = np.full((label.shape[0], label.shape[1], label.shape[2]), colour, dtype=int)
+        equality = np.equal(label, color)
+        class_map = np.all(equality, axis=-1)
+        # semantic_map[class_map] = index
+        semantic_map.append(class_map)
+        
+    semantic_map = np.stack(semantic_map, axis=-1).astype(np.float32)
+    return semantic_map
