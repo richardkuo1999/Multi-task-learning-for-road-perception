@@ -257,7 +257,7 @@ def parse_args():
                             # yolop_backbone
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/muti.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
@@ -286,9 +286,9 @@ def parse_args():
     parser.add_argument('--iou_thres', type=float, default=0.6, 
                             help='IOU threshold for NMS')
     parser.add_argument('--num_seg_class', type=int, default=2)
-    parser.add_argument('--val_start', type=int, default=0, 
+    parser.add_argument('--val_start', type=int, default=5, 
                             help='start do validation')
-    parser.add_argument('--val_freq', type=int, default=1, 
+    parser.add_argument('--val_freq', type=int, default=2, 
                             help='How many epochs do one time validation')
     # dataset   BDD100k_10k
     parser.add_argument('--dataset', type=str, default='BddDataset', 

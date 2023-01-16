@@ -38,7 +38,6 @@ class Model(nn.Module):
         # Define model
         ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
         self.HeadOut = self.yaml['HeadOut']
-        self.Det_nc = self.yaml['Det_nc']
         if nc:
             logger.info(f"Overriding model.yaml Det_nc={self.yaml['Det_nc']} with nc={nc[0]}")
             logger.info(f"Overriding model.yaml Lane_nc={self.yaml['Lane_nc']} with nc={nc[1]}")
@@ -49,6 +48,13 @@ class Model(nn.Module):
         if anchors:
             logger.info(f'Overriding model.yaml anchors with anchors={anchors}')
             self.yaml['anchors'] = round(anchors)  # override yaml value
+
+
+        self.Det_nc = self.yaml['Det_nc']
+        self.Lane_nc = self.yaml['Lane_nc']
+        self.driveArea_nc = self.yaml['driveArea_nc']
+
+
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
         self.names = [str(i) for i in range(self.Det_nc)]  # default names
         # print([x.shape for x in self.forward(torch.zeros(1, ch, 64, 64))])

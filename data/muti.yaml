@@ -28,4 +28,6 @@ Lane_names: {'background'    : [  0,   0,   0],
              'single_white'  : [160,  86, 219],
              'single_yellow' : [219,  86, 178]
             }
-DriveArea_names: [ 'drivable' ]
+DriveArea_names: {'background'    : [  0,   0,   0],
+                  'drivable' : [127,127, 127]
+                 }

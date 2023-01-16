@@ -1,7 +1,7 @@
 # parameters
 Det_nc: 1  # number of classes
-Lane_nc: 1  # number of classes
-driveArea_nc: 1  # number of classes
+Lane_nc: 2  # number of classes
+driveArea_nc: 2  # number of classes
 depth_multiple: 1.0  # model depth multiple
 width_multiple: 1.0  # layer channel multiple
 HeadOut: [105, 128, 151] # Det_out_idx, Da_Segout_idx, LL_Segout_idx
@@ -15,7 +15,7 @@ anchors:
 # [from, module, args]
 # from：输入来自那一层，-1代表上一次，1代表第1层，3代表第3层
 # module：子模块
-# args：模块参数，channel_in，channel_out，kernel_size，stride，padding，bias等]
+# args：模块参数，channel_out，kernel_size，stride，padding，bias等]
 
 backbone:
   # [from, number, module, args]
@@ -205,7 +205,7 @@ DriveArea_Head:
   [-1, 1, Conv, [8, 1, 1]],
 
   [ -1, 1, Upsample, [None, 2, 'nearest']],  
-  [ -1, 1, Conv, [2, 3, 1]], #128
+  [ -1, 1, Conv, [driveArea_nc, 3, 1]], #128
  ]
 
 
@@ -248,5 +248,5 @@ Lane_Head:
   [-1, 1, Conv, [8, 1, 1]],
 
   [ -1, 1, Upsample, [None, 2, 'nearest']],  #150
-  [ -1, 1, Conv, [2, 3, 1]], #151
+  [ -1, 1, Conv, [Lane_nc, 3, 1]], #151
  ]

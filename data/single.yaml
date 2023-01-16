@@ -16,4 +16,6 @@ Det_names: [ 'car' ]
 Lane_names: {'background'    : [  0,   0,   0],
              'lane' : [255,255, 255]
             }
-DriveArea_names: [ 'drivable' ]
+DriveArea_names: {'background'    : [  0,   0,   0],
+                  'drivable' : [127,127, 127]
+                 }

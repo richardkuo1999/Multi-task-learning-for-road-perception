@@ -117,7 +117,9 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             pad_w, pad_h = shapes[0][1][1]
             pad_w = int(pad_w)
             pad_h = int(pad_h)
-            ratio = shapes[0][1][0][0]
+            # ratio = shapes[0][1][0][0]
+            # FIXME
+            ratio = 0.5
 
             t = time_synchronized()
             det_out, da_seg_out, ll_seg_out= model(img)
