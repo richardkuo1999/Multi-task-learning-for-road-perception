@@ -6,16 +6,17 @@ Project Description
 
 ### Todo
 
+- [ ] Change Loss function  
 - [ ] EMA model  
 - [ ] multi gpu  
 
 ### In Progress
 
-- [ ] let Lane Line  Segment Head can be classified  
-- [ ] modify Loss function  
+- [ ] modify Loss function can be classified  
 
 ### Done ✓
 
+- [x] 1/16 let Lane Line  Segment Head can be classified  
 - [x] 1/15 dataloader multi class  
 - [x] 1/13 maintain dataset use yaml  
 - [x] 1/13 build up model method change to YOLOv7 type  
