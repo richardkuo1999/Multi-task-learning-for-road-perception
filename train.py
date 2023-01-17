@@ -43,24 +43,25 @@ logger = logging.getLogger(__name__)
 
 
 def main(args, hyp, device, writer):
-    logger.info(colorstr('hyperparameter: ') + ', '\
-                                .join(f'{k}={v}' for k, v in hyp.items()))
-    save_dir, maxEpochs = Path(args.save_dir), args.epochs
     begin_epoch = 1
     global_steps = 0
 
     # Directories
+    logger.info(colorstr('hyperparameter: ') + ', '\
+                                .join(f'{k}={v}' for k, v in hyp.items()))
+    save_dir, maxEpochs = Path(args.save_dir), args.epochs
     wdir = save_dir / 'weights'
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
     results_file = save_dir / 'results.txt'
 
-    # Save run settings
+    # Save run settings(hyp, args)
     with open(save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
     with open(save_dir / 'args.yaml', 'w') as f:
         yaml.dump(vars(args), f, sort_keys=False)
   
 
+    # Get class and class number
     with open(args.data) as f:
         data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
     Det_class = data_dict['Det_names']
@@ -74,7 +75,10 @@ def main(args, hyp, device, writer):
     # build up model
     print("begin to build up model...")
     # model = Model(args.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
-    model = Model(args.cfg, nc).to(device)
+
+    #TODO anchor method
+    anchors = None
+    model = Model(args.cfg, nc, anchors).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)
@@ -285,8 +289,8 @@ def parse_args():
                             help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, 
                             help='IOU threshold for NMS')
-    parser.add_argument('--num_seg_class', type=int, default=2)
-    parser.add_argument('--val_start', type=int, default=5, 
+    parser.add_argument('--num_seg_class', type=int, default=1)
+    parser.add_argument('--val_start', type=int, default=0, 
                             help='start do validation')
     parser.add_argument('--val_freq', type=int, default=2, 
                             help='How many epochs do one time validation')

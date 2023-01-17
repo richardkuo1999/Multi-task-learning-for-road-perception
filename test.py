@@ -118,7 +118,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             pad_w = int(pad_w)
             pad_h = int(pad_h)
             # ratio = shapes[0][1][0][0]
-            # FIXME
+            # FIXME ratio not alway 0.5
             ratio = 0.5
 
             t = time_synchronized()

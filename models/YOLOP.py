@@ -26,7 +26,7 @@ from models.common import *
 logger = logging.getLogger(__name__)
 
 class Model(nn.Module):
-    def __init__(self, cfg, nc, ch=3, anchors=None):
+    def __init__(self, cfg, nc, anchors=None, ch=3, ):
         super(Model, self).__init__()
         if isinstance(cfg, dict):
             self.yaml = cfg  # model dict
@@ -92,17 +92,16 @@ class Model(nn.Module):
             if block.f != -1:
                 x = cache[block.f] if isinstance(block.f, int) else [x if j == -1 else cache[j] for j in block.f]       #calculate concat detect
             x = block(x)
-            # try:
-            #     print(x.size())
-            # except:
-            #     pass
+
             if i in self.HeadOut[1:]:     #save driving area segment result
                 m=nn.Sigmoid()
                 out.append(m(x))
+                
             if i == self.HeadOut[0]:
-                det_out = x
+                out = [x]
+                
             cache.append(x if block.i in self.save else None)
-        out.insert(0,det_out)
+        # out.insert(0,det_out)
         return out ##det_out, da_seg_out,ll_seg_out
             
     def _initialize_biases(self, cf=None):  # initialize biases into Detect(), cf is class frequency
