@@ -28,15 +28,7 @@ from utils.general import colorstr, set_logging, increment_path, write_log,\
                          val_tensorboard, AverageMeter
 
 
-SEG_ONLY = False           # Only train two segmentation branchs
-DET_ONLY = False           # Only train detection branch
-ENC_SEG_ONLY = False       # Only train encoder and two segmentation branchs
-ENC_DET_ONLY = False       # Only train encoder and detection branch
 
-# Single task 
-DRIVABLE_ONLY = False      # Only train da_segmentation task
-LANE_ONLY = False          # Only train ll_segmentation task
-DET_ONLY = False  
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +46,6 @@ def main(args, hyp, device, writer):
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
     results_file = save_dir / 'results.txt'
 
-    # Save run settings(hyp, args)
-    with open(save_dir / 'hyp.yaml', 'w') as f:
-        yaml.dump(hyp, f, sort_keys=False)
-    with open(save_dir / 'args.yaml', 'w') as f:
-        yaml.dump(vars(args), f, sort_keys=False)
   
 
     # Get class and class number
@@ -67,10 +54,15 @@ def main(args, hyp, device, writer):
     Det_class = data_dict['Det_names']
     Lane_class = data_dict['Lane_names']
     DriveArea_class = data_dict['DriveArea_names']
-    nc = [len(Det_class), len(Lane_class), len(DriveArea_class)]
+    hyp.update({'nc':[len(Det_class), len(Lane_class), len(DriveArea_class)]})
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
     logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+    # Save run settings(hyp, args)
+    with open(save_dir / 'hyp.yaml', 'w') as f:
+        yaml.dump(hyp, f, sort_keys=False)
+    with open(save_dir / 'args.yaml', 'w') as f:
+        yaml.dump(vars(args), f, sort_keys=False)
 
     # build up model
     print("begin to build up model...")
@@ -78,7 +70,7 @@ def main(args, hyp, device, writer):
 
     #TODO anchor method
     anchors = None
-    model = Model(args.cfg, nc, anchors).to(device)
+    model = Model(args.cfg, hyp['nc'], anchors).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)
@@ -134,9 +126,9 @@ def main(args, hyp, device, writer):
     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
 
 
-    # assign model params
+    # # assign model params
     model.gr = 1.0
-    model.nc = 1
+    model.nc = hyp['nc'][0]
 
     # training
     num_warmup = max(round(hyp['warmup_epochs'] * num_batch), 1000)
@@ -237,7 +229,6 @@ def main(args, hyp, device, writer):
             logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
             ckpt = {
                 'epoch': epoch,
-                'model': args.name,
                 'state_dict':  model.state_dict(),
                 # 'best_state_dict': model.module.state_dict(),
                 # 'perf': perf_indicator,
@@ -261,7 +252,7 @@ def parse_args():
                             # yolop_backbone
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/muti.yaml', 
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
@@ -276,31 +267,24 @@ def parse_args():
                                     set it to be true!')
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--epochs', type=int, default=300)
+    parser.add_argument('--epochs', type=int, default=500)
     parser.add_argument('--train_batch_size', type=int, default=10, 
                             help='total batch size for all GPUs')
     parser.add_argument('--test_batch_size', type=int, default=10, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
-    parser.add_argument('--name', default='exp', 
-                            help='save to project/name')
     parser.add_argument('--conf_thres', type=float, default=0.001,
                             help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, 
                             help='IOU threshold for NMS')
-    parser.add_argument('--num_seg_class', type=int, default=1)
-    parser.add_argument('--val_start', type=int, default=0, 
+    parser.add_argument('--val_start', type=int, default=20, 
                             help='start do validation')
-    parser.add_argument('--val_freq', type=int, default=2, 
+    parser.add_argument('--val_freq', type=int, default=5, 
                             help='How many epochs do one time validation')
     # dataset   BDD100k_10k
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
-
-    parser.add_argument('--dataRoot', type=str, 
-                    default='F:/dataset/BDD100k_10k', 
-                            help='the path of images folder')
 
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
                             help='[train, test] image sizes')
@@ -309,8 +293,6 @@ def parse_args():
 
     parser.add_argument('--pretrain', type=str, default='', 
                             help='all branch pretrain')
-    parser.add_argument('--pretrain_det', type=str, default='', 
-                            help='detection branch pretrain')
    
     # Cudnn related params
     parser.add_argument('--cudnn_benchmark', type=bool, default=True,  
@@ -337,11 +319,6 @@ if __name__ == '__main__':
     # Hyperparameter
     with open(args.hyp) as f:
         hyp = yaml.load(f, Loader=yaml.SafeLoader)  # load hyps
-
-    hyp.update({'seg_only':SEG_ONLY,'det_only':DET_ONLY,
-                'enc_seg_only':ENC_SEG_ONLY, 'enc_det_only':ENC_DET_ONLY,
-                'drivable_only':DRIVABLE_ONLY, 'lane_only':LANE_ONLY,
-                'det_only':DET_ONLY})
 
     if(args.resume):
         args.save_dir = Path('./')

@@ -27,6 +27,7 @@ class MultiHeadLoss(nn.Module):
         self.losses = nn.ModuleList(losses)
         self.lambdas = lambdas
         self.hyp = hyp
+        self.nc = hyp['nc']
 
     def forward(self, head_fields, head_targets, shapes, model):
         """
@@ -118,7 +119,7 @@ class MultiHeadLoss(nn.Module):
         lane_line_seg_targets = targets[2].view(-1)
         lseg_ll = BCEseg(lane_line_seg_predicts, lane_line_seg_targets)
         #TODO  lane_line loss clase
-        metric = SegmentationMetric(9)
+        metric = SegmentationMetric(self.nc[1])
         nb, _, height, width = targets[1].shape
         pad_w, pad_h = shapes[0][1][1]
         pad_w = int(pad_w)
@@ -142,23 +143,23 @@ class MultiHeadLoss(nn.Module):
         liou_ll *= hyp['ll_iou_gain'] * self.lambdas[5]
 
         
-        if hyp['det_only'] or hyp['enc_det_only']:
-            lseg_da = 0 * lseg_da
-            lseg_ll = 0 * lseg_ll
-            liou_ll = 0 * liou_ll
+        # if hyp['det_only'] or hyp['enc_det_only']:
+        #     lseg_da = 0 * lseg_da
+        #     lseg_ll = 0 * lseg_ll
+        #     liou_ll = 0 * liou_ll
             
-        if  hyp['seg_only'] or hyp['enc_seg_only'] or \
-                         hyp['lane_only'] or hyp['drivable_only']:
-            lcls = 0 * lcls
-            lobj = 0 * lobj
-            lbox = 0 * lbox
+        # if  hyp['seg_only'] or hyp['enc_seg_only'] or \
+        #                  hyp['lane_only'] or hyp['drivable_only']:
+        #     lcls = 0 * lcls
+        #     lobj = 0 * lobj
+        #     lbox = 0 * lbox
 
-            if hyp['lane_only']:
-                lseg_da = 0 * lseg_da
+        #     if hyp['lane_only']:
+        #         lseg_da = 0 * lseg_da
 
-            if hyp['drivable_only']:
-                lseg_ll = 0 * lseg_ll
-                liou_ll = 0 * liou_ll
+        #     if hyp['drivable_only']:
+        #         lseg_ll = 0 * lseg_ll
+        #         liou_ll = 0 * liou_ll
 
         loss = lbox + lobj + lcls + lseg_da + lseg_ll + liou_ll
         # loss = lseg

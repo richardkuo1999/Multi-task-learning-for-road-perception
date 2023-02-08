@@ -12,6 +12,7 @@ Project Description
 
 ### In Progress
 
+- [ ] fix show lane line Segment result  
 - [ ] modify Loss function can be classified  
 
 ### Done ✓
