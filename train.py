@@ -204,7 +204,7 @@ def main(args, hyp, device, writer):
 
         lr_scheduler.step()
         # evaluate on validation set
-        if (epoch > args.val_start and (epoch % args.val_freq == 0 
+        if (epoch >= args.val_start and (epoch % args.val_freq == 0 
                                                     or epoch == maxEpochs)):
                                                     
             savepath = wdir / f'epoch-{epoch}.pth'
@@ -271,7 +271,7 @@ def parse_args():
                             help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, 
                             help='IOU threshold for NMS')
-    parser.add_argument('--val_start', type=int, default=0, 
+    parser.add_argument('--val_start', type=int, default=20, 
                             help='start do validation')
     parser.add_argument('--val_freq', type=int, default=5, 
                             help='How many epochs do one time validation')
