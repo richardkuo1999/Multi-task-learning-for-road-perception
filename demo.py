@@ -17,7 +17,7 @@ from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
 from utils.postprocess import morphological_process, connect_lane
 from utils.general import colorstr, increment_path, write_log, non_max_suppression,\
-                        scale_coords, AverageMeter, OpCounter, addText2image
+                        scale_coords, data_color, AverageMeter, OpCounter, addText2image
 
 
 
@@ -49,6 +49,8 @@ def detect(args, device, expName):
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
     logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+    Lane_color = data_color(Lane_class)
+    DriveArea_color = data_color(DriveArea_class)
 
     # Load model
     model = Model(args.cfg, nc).to(device)
@@ -139,7 +141,7 @@ def detect(args, device, expName):
         #ll_seg_mask = connect_lane(ll_seg_mask)
         if args.draw:
             img_det = show_seg_result(img_det, (da_seg_mask, ll_seg_mask), _, _, 
-                                                                is_demo=True)
+                                palette=(DriveArea_color,Lane_color), is_demo=True)
 
             if len(det):
                 det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
@@ -184,11 +186,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='weights/epoch-30.pth', 
+    parser.add_argument('--weights', type=str, default='weights/epoch-5.pth', 
                                                     help='model.pth path(s)')
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/muti.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--source', type=str, default='inference/images', 
                                                     help='source')  

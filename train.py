@@ -25,7 +25,7 @@ from utils.torch_utils import select_device
 from utils.datasets import create_dataloader
 from models.YOLOP import get_optimizer, Model
 from utils.general import colorstr, set_logging, increment_path, write_log,\
-                         val_tensorboard, AverageMeter
+                         val_tensorboard, data_color, AverageMeter
 
 
 
@@ -58,6 +58,8 @@ def main(args, hyp, device, writer):
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
     logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+    Lane_color = data_color(Lane_class)
+    DriveArea_color = data_color(DriveArea_class)
     # Save run settings(hyp, args)
     with open(save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
@@ -204,28 +206,8 @@ def main(args, hyp, device, writer):
         # evaluate on validation set
         if (epoch > args.val_start and (epoch % args.val_freq == 0 
                                                     or epoch == maxEpochs)):
-            # print('validate')
-            da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
-                epoch, args, hyp, valid_loader, model, criterion,
-                save_dir,results_file, logger, device, 
-            )
-
-            fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
-
-            # validation result tensorboard
-            val_tensorboard(writer, global_steps-1, da_segment_result, 
-                            ll_segment_result, detect_result, total_loss, maps, t)
-
-            # if perf_indicator >= best_perf:
-            #     best_perf = perf_indicator
-            #     best_model = True
-            # else:
-            #     best_model = False
-
-            # save checkpoint model and best model
-            
+                                                    
             savepath = wdir / f'epoch-{epoch}.pth'
-            
             logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
             ckpt = {
                 'epoch': epoch,
@@ -237,6 +219,17 @@ def main(args, hyp, device, writer):
             }
             torch.save(ckpt, savepath)
             del ckpt
+
+            # print('validate')
+            da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
+                epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file, 
+                                            Lane_color, DriveArea_color,logger, device)
+
+            fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
+
+            # validation result tensorboard
+            val_tensorboard(writer, global_steps-1, da_segment_result, 
+                            ll_segment_result, detect_result, total_loss, maps, t)
 
     torch.cuda.empty_cache()
     return
@@ -252,7 +245,7 @@ def parse_args():
                             # yolop_backbone
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/muti.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
@@ -278,7 +271,7 @@ def parse_args():
                             help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, 
                             help='IOU threshold for NMS')
-    parser.add_argument('--val_start', type=int, default=20, 
+    parser.add_argument('--val_start', type=int, default=0, 
                             help='start do validation')
     parser.add_argument('--val_freq', type=int, default=5, 
                             help='How many epochs do one time validation')

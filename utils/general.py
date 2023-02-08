@@ -432,3 +432,9 @@ def one_hot_it_v11_dice(label, label_info):
         
     semantic_map = np.stack(semantic_map, axis=-1).astype(np.float32)
     return semantic_map
+
+def data_color(label_info):
+    color = []
+    for index, info in enumerate(label_info):
+        color.append(np.array(label_info[info][:3]))
+    return color

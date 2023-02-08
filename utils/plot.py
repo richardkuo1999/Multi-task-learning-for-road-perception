@@ -116,30 +116,36 @@ def show_seg_result(img, result, index, epoch, save_dir=None, is_ll=False,palett
     # img = mmcv.imread(img)
     # img = img.copy()
     # seg = result[0]
-    if palette is None:
-        palette = np.random.randint(
-                0, 255, size=(3, 3))
-    palette[0] = [0, 0, 0]
-    palette[1] = [0, 255, 0]
-    palette[2] = [255, 0, 0]
-    palette = np.array(palette)
-    assert palette.shape[0] == 3 # len(classes)
-    assert palette.shape[1] == 3
-    assert len(palette.shape) == 2
+    # if palette is None:
+    #     palette = np.random.randint(
+    #             0, 255, size=(3, 3))
+    # palette[0] = [0, 0, 0]
+    # palette[1] = [0, 255, 0]
+    # palette[2] = [255, 0, 0]
+    # palette = np.array(palette)
+    # assert palette.shape[0] == 3 # len(classes)
+    # assert palette.shape[1] == 3
+    # assert len(palette.shape) == 2
     
     if not is_demo:
         color_seg = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
         for label, color in enumerate(palette):
             color_seg[result == label, :] = color
     else:
-        color_area = np.zeros((result[0].shape[0], result[0].shape[1], 3), dtype=np.uint8)
-        
-        # for label, color in enumerate(palette):
-        #     color_area[result[0] == label, :] = color
+        color_seg = np.zeros((result[0].shape[0], result[0].shape[1], 3), dtype=np.uint8)
+        for i in range(len(palette)):
+            for label, color in enumerate(palette[i][1:], 1):
+                color_seg[result[i] == label, :] = color
 
-        color_area[result[0] == 1] = [0, 255, 0]
-        color_area[result[1] ==1] = [255, 0, 0]
-        color_seg = color_area
+
+        # color_area = np.zeros((result[0].shape[0], result[0].shape[1], 3), dtype=np.uint8)
+        
+        # # for label, color in enumerate(palette):
+        # #     color_area[result[0] == label, :] = color
+
+        # color_area[result[0] == 1] = [0, 255, 0]
+        # color_area[result[1] ==1] = [255, 0, 0]
+        # color_seg = color_area
 
     # convert to BGR
     color_seg = color_seg[..., ::-1]

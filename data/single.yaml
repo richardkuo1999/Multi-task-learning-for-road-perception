@@ -14,10 +14,10 @@ val:
 Det_names: [ 'car' ]
 # Lane_names: [ 'lane' ]
 Lane_names: {
-             'background'    : [  0,   0,   0],
+             'background'    : [  0,   0,   0], ## 'background' is need
              'lane' : [255,255, 255]
             }
 DriveArea_names: {
-                  'background'    : [  0,   0,   0],
+                  'background'    : [  0,   0,   0], ## 'background' is need
                   'drivable' : [127,127, 127]
                  }

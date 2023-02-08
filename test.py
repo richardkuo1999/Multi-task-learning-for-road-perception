@@ -22,13 +22,14 @@ from utils.metrics import ConfusionMatrix, SegmentationMetric, ap_per_class,\
                             output_to_target, ap_per_class
 from utils.general import colorstr, increment_path, write_log,non_max_suppression,\
                         check_img_size,scale_coords,xyxy2xywh,xywh2xyxy,\
-                        box_iou,coco80_to_coco91_class,AverageMeter
+                        box_iou,coco80_to_coco91_class, data_color, AverageMeter
 
 
 logger = logging.getLogger(__name__)
 
 def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
-              results_file, logger=None, device='cpu'):
+              results_file, Lane_color, DriveArea_color, logger=None, 
+                                                        device='cpu'):
     """
     validata
 
@@ -180,8 +181,9 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
                     img_test1 = img_test.copy()
                     # FIXME draw segmentation result
-                    _ = show_seg_result(img_test, da_seg_mask, i,epoch,save_dir)
-                    _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, is_gt=True)
+                    _ = show_seg_result(img_test, da_seg_mask, i,epoch, save_dir, palette=DriveArea_color)
+                    _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, palette=DriveArea_color
+                                                                                            , is_gt=True)
 
                     img_ll = cv2.imread(paths[i])
                     ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
@@ -198,8 +200,9 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
                     img_ll1 = img_ll.copy()
                     # FIXME draw segmentation result
-                    _ = show_seg_result(img_ll, ll_seg_mask, i,epoch,save_dir, is_ll=True)
-                    _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, is_ll=True, is_gt=True)
+                    _ = show_seg_result(img_ll, ll_seg_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True)
+                    _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True, 
+                                                                                                    is_gt=True)
 
                     img_det = cv2.imread(paths[i])
                     img_gt = img_det.copy()
@@ -407,7 +410,7 @@ def parse_args():
                             help='hyperparameter path')
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                                 help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/muti.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/test',
                             help='log directory')
@@ -420,7 +423,7 @@ def parse_args():
     parser.add_argument('--allplot', type=bool, default=False)
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='./weights/epoch-500.pth', 
+    parser.add_argument('--weights', type=str, default='./weights/epoch-5.pth', 
                                                         help='model.pth path(s)')
     parser.add_argument('--test_batch_size', type=int, default=1, 
                             help='total batch size for all GPUs')
@@ -462,6 +465,8 @@ if __name__ == '__main__':
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
     logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+    Lane_color = data_color(Lane_class)
+    DriveArea_color = data_color(DriveArea_class)
 
     # Directories
     args.save_dir = Path(increment_path(Path(args.logDir)/ args.dataset))  # increment run
@@ -511,6 +516,7 @@ if __name__ == '__main__':
     with open(args.save_dir / 'args.yaml', 'w') as f:
         yaml.dump(vars(args), f, sort_keys=False)
     test(epoch, args, hyp, valid_loader, model, criterion,
-                args.save_dir,results_file, device = device)
+                args.save_dir, results_file, Lane_color, DriveArea_color, 
+                                                        device = device)
 
     print("test finish")

@@ -19,7 +19,7 @@ Det_names: ['car']
 # # id_dict = {'car': 0, 'bus': 1, 'truck': 2}
 
 Lane_names: {
-             'background'    : [  0,   0,   0],
+             'background'    : [  0,   0,   0], ## 'background' is need
              'crosswalk'     : [219,  94,  86],
              'double_other'  : [ 86, 111, 219],
              'double_white'  : [145, 219,  86],
@@ -30,6 +30,6 @@ Lane_names: {
              'single_yellow' : [219,  86, 178]
             }
 DriveArea_names: {
-                  'background'    : [  0,   0,   0],
+                  'background'    : [  0,   0,   0], ## 'background' is need
                   'drivable' : [127,127, 127]
                  }
