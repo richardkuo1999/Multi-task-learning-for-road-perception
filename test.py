@@ -163,8 +163,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             t_nms = time_synchronized() - t
             if batch_i > 0:
                 T_nms.update(t_nms/img.size(0),img.size(0))
-            # FIXME plt
-            if args.allplot or batch_i == 0:
+            if batch_i == 0:
                 for i in range(batch_size):
                     img_test = cv2.imread(paths[i])
                     da_seg_mask = da_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
@@ -180,7 +179,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     # seg_mask = seg_mask > 0.5
                     # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
                     img_test1 = img_test.copy()
-                    # FIXME draw segmentation result
                     _ = show_seg_result(img_test, da_seg_mask, i,epoch, save_dir, palette=DriveArea_color)
                     _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, palette=DriveArea_color
                                                                                             , is_gt=True)
@@ -199,7 +197,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     # seg_mask = seg_mask > 0.5
                     # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
                     img_ll1 = img_ll.copy()
-                    # FIXME draw segmentation result
                     _ = show_seg_result(img_ll, ll_seg_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True)
                     _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True, 
                                                                                                     is_gt=True)
