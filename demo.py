@@ -1,5 +1,7 @@
 import cv2
+import yaml
 import time
+import logging
 import argparse
 import numpy as np
 from numpy import random
@@ -14,12 +16,12 @@ from utils.datasets import LoadImages
 from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
 from utils.postprocess import morphological_process, connect_lane
-from utils.general import increment_path, write_log, non_max_suppression,\
-                        scale_coords, AverageMeter, OpCounter, addText2image
+from utils.general import colorstr, increment_path, write_log, non_max_suppression,\
+                        scale_coords, data_color, AverageMeter, OpCounter, addText2image
 
 
 
-
+logger = logging.getLogger(__name__)
 
 normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -37,9 +39,21 @@ def detect(args, device, expName):
     save_dir.mkdir(parents=True, exist_ok=True)  # make dir
     results_file = save_dir / 'results.txt'
     half = device.type != 'cpu'  # half precision only supported on CUDA
+    
+    with open(args.data) as f:
+        data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
+    Det_class = data_dict['Det_names']
+    Lane_class = data_dict['Lane_names']
+    DriveArea_class = data_dict['DriveArea_names']
+    nc = [len(Det_class), len(Lane_class), len(DriveArea_class)]
+    logger.info(f"{colorstr('Det_class: ')}{Det_class}")
+    logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
+    logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+    Lane_color = data_color(Lane_class)
+    DriveArea_color = data_color(DriveArea_class)
 
     # Load model
-    model = Model(args.cfg)
+    model = Model(args.cfg, nc).to(device)
     checkpoint = torch.load(args.weights, map_location= device)
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
@@ -127,7 +141,7 @@ def detect(args, device, expName):
         #ll_seg_mask = connect_lane(ll_seg_mask)
         if args.draw:
             img_det = show_seg_result(img_det, (da_seg_mask, ll_seg_mask), _, _, 
-                                                                is_demo=True)
+                                palette=(DriveArea_color,Lane_color), is_demo=True)
 
             if len(det):
                 det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
@@ -172,11 +186,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='', 
+    parser.add_argument('--weights', type=str, default='weights/epoch-5.pth', 
                                                     help='model.pth path(s)')
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--source', type=str, default='inference/videos', 
+    parser.add_argument('--data', type=str, default='data/muti.yaml', 
+                                            help='dataset yaml path')
+    parser.add_argument('--source', type=str, default='inference/images', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')

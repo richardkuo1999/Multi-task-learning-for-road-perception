@@ -6,19 +6,21 @@ Project Description
 
 ### Todo
 
+- [ ] Change Loss function  
 - [ ] EMA model  
 - [ ] multi gpu  
 
 ### In Progress
 
-- [ ] let Lane Line  Segment Head can be classified  
-- [ ] modify Loss function  
+- [ ] fix show lane line Segment result  
+- [ ] modify Loss function can be classified  
 
 ### Done ✓
 
+- [x] 1/16 let Lane Line  Segment Head can be classified  
+- [x] 1/15 dataloader multi class  
 - [x] 1/13 maintain dataset use yaml  
 - [x] 1/13 build up model method change to YOLOv7 type  
-- [x] 12/18 dataloader multi class  
 - [x] 12/21 get MACs FLOTs  
 - [x] 12/09 Add profiler  
 - [x] 12/09 level up Pytorch and deal with the vision bug  

@@ -2,6 +2,7 @@ import cv2
 import yaml
 import json
 import random
+import logging
 import argparse
 import numpy as np
 from PIL import Image
@@ -19,24 +20,16 @@ from utils.torch_utils import select_device, time_synchronized
 from utils.plot import plot_one_box,show_seg_result,plot_img_and_mask,plot_images
 from utils.metrics import ConfusionMatrix, SegmentationMetric, ap_per_class,\
                             output_to_target, ap_per_class
-from utils.general import increment_path, write_log,non_max_suppression,\
+from utils.general import colorstr, increment_path, write_log,non_max_suppression,\
                         check_img_size,scale_coords,xyxy2xywh,xywh2xyxy,\
-                        box_iou,coco80_to_coco91_class,AverageMeter
+                        box_iou,coco80_to_coco91_class, data_color, AverageMeter
 
 
-SEG_ONLY = False           # Only train two segmentation branchs
-DET_ONLY = False           # Only train detection branch
-ENC_SEG_ONLY = False       # Only train encoder and two segmentation branchs
-ENC_DET_ONLY = False       # Only train encoder and detection branch
-
-# Single task 
-DRIVABLE_ONLY = False      # Only train da_segmentation task
-LANE_ONLY = False          # Only train ll_segmentation task
-DET_ONLY = False 
-
+logger = logging.getLogger(__name__)
 
 def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
-              results_file, logger=None, device='cpu'):
+              results_file, Lane_color, DriveArea_color, logger=None, 
+                                                        device='cpu'):
     """
     validata
 
@@ -75,9 +68,9 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
 
     seen =  0 
-    confusion_matrix = ConfusionMatrix(nc=model.nc) #detector confusion matrix
-    da_metric = SegmentationMetric(args.num_seg_class) #segment confusion matrix    
-    ll_metric = SegmentationMetric(2) #segment confusion matrix
+    confusion_matrix = ConfusionMatrix(nc=hyp['nc'][0]) #detector confusion matrix
+    ll_metric = SegmentationMetric(hyp['nc'][1]) #lane line segment confusion matrix
+    da_metric = SegmentationMetric(hyp['nc'][2]) #drive area segment confusion matrix    
 
     names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') \
                                                         else model.module.names)}
@@ -115,7 +108,9 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             pad_w, pad_h = shapes[0][1][1]
             pad_w = int(pad_w)
             pad_h = int(pad_h)
-            ratio = shapes[0][1][0][0]
+            # ratio = shapes[0][1][0][0]
+            # FIXME ratio not alway 0.5
+            ratio = 0.5
 
             t = time_synchronized()
             det_out, da_seg_out, ll_seg_out= model(img)
@@ -168,8 +163,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             t_nms = time_synchronized() - t
             if batch_i > 0:
                 T_nms.update(t_nms/img.size(0),img.size(0))
-
-            if args.allplot or batch_i == 0:
+            if batch_i == 0:
                 for i in range(batch_size):
                     img_test = cv2.imread(paths[i])
                     da_seg_mask = da_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
@@ -185,8 +179,9 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     # seg_mask = seg_mask > 0.5
                     # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
                     img_test1 = img_test.copy()
-                    _ = show_seg_result(img_test, da_seg_mask, i,epoch,save_dir)
-                    _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, is_gt=True)
+                    _ = show_seg_result(img_test, da_seg_mask, i,epoch, save_dir, palette=DriveArea_color)
+                    _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, palette=DriveArea_color
+                                                                                            , is_gt=True)
 
                     img_ll = cv2.imread(paths[i])
                     ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
@@ -202,8 +197,9 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     # seg_mask = seg_mask > 0.5
                     # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
                     img_ll1 = img_ll.copy()
-                    _ = show_seg_result(img_ll, ll_seg_mask, i,epoch,save_dir, is_ll=True)
-                    _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, is_ll=True, is_gt=True)
+                    _ = show_seg_result(img_ll, ll_seg_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True)
+                    _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True, 
+                                                                                                    is_gt=True)
 
                     img_det = cv2.imread(paths[i])
                     img_gt = img_det.copy()
@@ -411,6 +407,8 @@ def parse_args():
                             help='hyperparameter path')
     parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                                 help='model.yaml path')
+    parser.add_argument('--data', type=str, default='data/muti.yaml', 
+                                            help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/test',
                             help='log directory')
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
@@ -422,7 +420,8 @@ def parse_args():
     parser.add_argument('--allplot', type=bool, default=False)
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='./weights/epoch-295.pth', help='model.pth path(s)')
+    parser.add_argument('--weights', type=str, default='./weights/epoch-5.pth', 
+                                                        help='model.pth path(s)')
     parser.add_argument('--test_batch_size', type=int, default=1, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
@@ -453,32 +452,35 @@ if __name__ == '__main__':
     with open(args.hyp) as f:
         hyp = yaml.load(f, Loader=yaml.SafeLoader)  # load hyps
 
-    hyp.update({'seg_only':SEG_ONLY,'det_only':DET_ONLY,
-                'enc_seg_only':ENC_SEG_ONLY, 'enc_det_only':ENC_DET_ONLY,
-                'drivable_only':DRIVABLE_ONLY, 'lane_only':LANE_ONLY,
-                'det_only':DET_ONLY})
+    # Get class and class number
+    with open(args.data) as f:
+        data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
+    Det_class = data_dict['Det_names']
+    Lane_class = data_dict['Lane_names']
+    DriveArea_class = data_dict['DriveArea_names']
+    hyp.update({'nc':[len(Det_class), len(Lane_class), len(DriveArea_class)]})
+    logger.info(f"{colorstr('Det_class: ')}{Det_class}")
+    logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
+    logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+    Lane_color = data_color(Lane_class)
+    DriveArea_color = data_color(DriveArea_class)
 
+    # Directories
     args.save_dir = Path(increment_path(Path(args.logDir)/ args.dataset))  # increment run
     results_file = args.save_dir / 'results.txt'
     args.save_dir.mkdir(parents=True, exist_ok=True)
 
-    
-    # Data loading
-    print("begin to load data")
-    normalize = {'mean':[0.485, 0.456, 0.406], 
-                 'std':[0.229, 0.224, 0.225]}
-    valid_loader, valid_dataset = \
-            create_dataloader(args, hyp,args.test_batch_size, normalize, is_train=False, shuffle=False)
-    print('load data finished')
-
 
     # build up model
+    #TODO anchor method
     print("begin to build up model...")
-    model = Model(args.cfg).to(device)
+    anchors = None
+    model = Model(args.cfg, hyp['nc'], anchors).to(device)
 
     # loss function 
     criterion = get_loss(hyp, device)
 
+    # load weights
     model_dict = model.state_dict()
     checkpoint_file = args.weights
     print("=> loading checkpoint '{}'".format(checkpoint_file))
@@ -491,17 +493,27 @@ if __name__ == '__main__':
 
     model = model.to(device)
     model.gr = 1.0
-    model.nc = 1
+    model.nc = hyp['nc'][0]
     print('bulid model finished')
 
     epoch = 0 #special for test
     # Save run settings
+
+        # Data loading
+    print("begin to load data")
+    normalize = {'mean':[0.485, 0.456, 0.406], 
+                 'std':[0.229, 0.224, 0.225]}
+    valid_loader, valid_dataset = create_dataloader(args, hyp, data_dict, \
+                            args.test_batch_size, normalize, is_train=False, \
+                                                                shuffle=False)
+    print('load data finished')
 
     with open(args.save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
     with open(args.save_dir / 'args.yaml', 'w') as f:
         yaml.dump(vars(args), f, sort_keys=False)
     test(epoch, args, hyp, valid_loader, model, criterion,
-                args.save_dir,results_file, device = device)
+                args.save_dir, results_file, Lane_color, DriveArea_color, 
+                                                        device = device)
 
     print("test finish")

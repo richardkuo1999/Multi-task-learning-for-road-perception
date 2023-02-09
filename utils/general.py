@@ -270,6 +270,15 @@ def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
          35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
          64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90]
     return x
+    
+def xyxy2xywh(x):
+    # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
+    y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
+    y[:, 0] = (x[:, 0] + x[:, 2]) / 2  # x center
+    y[:, 1] = (x[:, 1] + x[:, 3]) / 2  # y center
+    y[:, 2] = x[:, 2] - x[:, 0]  # width
+    y[:, 3] = x[:, 3] - x[:, 1]  # height
+    return y
 
 def xywh2xyxy(x):
     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
@@ -280,17 +289,15 @@ def xywh2xyxy(x):
     y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
     return y
 
-def xyxy2xywh(x):
-    # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
-    y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
-    y[:, 0] = (x[:, 0] + x[:, 2]) / 2  # x center
-    y[:, 1] = (x[:, 1] + x[:, 3]) / 2  # y center
-    y[:, 2] = x[:, 2] - x[:, 0]  # width
-    y[:, 3] = x[:, 3] - x[:, 1]  # height
+def xywhn2xyxy(x, w=640, h=640, padw=0, padh=0):
+    # Convert nx4 boxes from [x, y, w, h] normalized to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
+    y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
+    y[:, 0] = w * (x[:, 0] - x[:, 2] / 2) + padw  # top left x
+    y[:, 1] = h * (x[:, 1] - x[:, 3] / 2) + padh  # top left y
+    y[:, 2] = w * (x[:, 0] + x[:, 2] / 2) + padw  # bottom right x
+    y[:, 3] = h * (x[:, 1] + x[:, 3] / 2) + padh  # bottom right y
     return y
-# 280 720 205.879417 281.992413 338.141346 388.051507
-# (0.19057493359375, 0.5043005923611111, 
-# 0.05946327812500001, 0.06931966805555557)
+
 def convert(size, box):
     dw = 1./(size[0])
     dh = 1./(size[1])
@@ -410,3 +417,24 @@ def addText2image(image, tag, fps):
                 cv2.putText(image, f'{tag},  FPS:{fps}', (30, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 3, 0)
                 return image
+
+def one_hot_it_v11_dice(label, label_info):
+    # return semantic_map -> [H, W, class_num]
+    semantic_map = []
+    # void = np.zeros(label.shape[:2])
+    for index, info in enumerate(label_info):
+        color = label_info[info][:3]
+        # colour_map = np.full((label.shape[0], label.shape[1], label.shape[2]), colour, dtype=int)
+        equality = np.equal(label, color)
+        class_map = np.all(equality, axis=-1)
+        # semantic_map[class_map] = index
+        semantic_map.append(class_map)
+        
+    semantic_map = np.stack(semantic_map, axis=-1).astype(np.float32)
+    return semantic_map
+
+def data_color(label_info):
+    color = []
+    for index, info in enumerate(label_info):
+        color.append(np.array(label_info[info][:3]))
+    return color

@@ -14,28 +14,22 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as transforms
 
-from utils.general import xyxy2xywh, convert
+from utils.general import xyxy2xywh, xywh2xyxy, xywhn2xyxy, convert, one_hot_it_v11_dice
 from utils.augmentations import augment_hsv, random_perspective, letterbox,\
                                  letterbox_for_img
 
-id_dict = {'person': 0, 'rider': 1, 'car': 2, 'bus': 3, 'truck': 4, 
-'bike': 5, 'motor': 6, 'tl_green': 7, 'tl_red': 8, 
-'tl_yellow': 9, 'tl_none': 10, 'traffic sign': 11, 'train': 12}
-id_dict_single = {'car': 0, 'bus': 1, 'truck': 2,'train': 3}
-# id_dict = {'car': 0, 'bus': 1, 'truck': 2}
-
-single_cls = True       # just detect vehicle
 
 
 def create_dataloader(args, hyp, data_dict, batch_size, normalize, is_train=True, shuffle=True):
     normalize = transforms.Normalize(
             normalize['mean'], normalize['std']
         )
-
+    
     datasets = eval(args.dataset)(
         args=args,
         hyp=hyp,
         data_dict=data_dict,
+        dataSet=data_dict['train'] if is_train else data_dict['val'],
         is_train=is_train,
         transform=transforms.Compose([
             transforms.ToTensor(),
@@ -62,7 +56,7 @@ class AutoDriveDataset(Dataset):
     """
     A general Dataset for some common function
     """
-    def __init__(self, args, hyp, data_dict, is_train, transform=None):
+    def __init__(self, args, hyp, data_dict, dataSet, is_train, transform=None):
         """
         initial all the characteristic
 
@@ -79,17 +73,24 @@ class AutoDriveDataset(Dataset):
         self.data_dict = data_dict
         self.transform = transform
         self.inputsize = args.img_size
-        self.num_seg_class = args.num_seg_class
         self.shapes = np.array(args.org_img_size)
 
-        # Data Root
-        self.img_root = Path(data_dict[0])
-        self.label_root = Path(data_dict[1])
-        self.mask_root = Path(data_dict[2])
-        self.lane_root = Path(data_dict[3])
-            
-        self.img_list = self.img_root.iterdir()
         self.Tensor = transforms.ToTensor()
+
+        # Data Root
+        self.img_root = Path(dataSet[0])
+        self.label_root = Path(dataSet[1])
+        self.mask_root = Path(dataSet[2])
+        self.lane_root = Path(dataSet[3])
+        self.label_Lane_info = data_dict['Lane_names']
+        self.label_drivable_info = data_dict['DriveArea_names']
+
+        self.mask_list = self.mask_root.iterdir()
+
+        self.db = []
+
+        # self.target_type = args.MODEL.TARGET_TYPE
+        self.shapes = np.array(args.org_img_size)
     
     def _get_db(self):
         """
@@ -127,91 +128,82 @@ class AutoDriveDataset(Dataset):
         cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
         cv2.warpAffine
         """
+        hyp = self.hyp
         data = self.db[idx]
+        resized_shape = max(self.inputsize) if isinstance(self.inputsize, list) \
+                                            else self.inputsize
+
         img = cv2.imread(data["image"], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        seg_label = cv2.imread(data["mask"])
-        lane_label = cv2.imread(data["lane"])
-        # TODO
-        # print(lane_label.shape)
-        # print(seg_label.shape)
-        resized_shape = self.inputsize
-        if isinstance(resized_shape, list):
-            resized_shape = max(resized_shape)
         h0, w0 = img.shape[:2]  # orig hw
-        r = resized_shape / max(h0, w0)  # resize image to img_size
-        if r != 1:  # always resize down, only resize up if training with augmentation
-            interp = cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR
-            img = cv2.resize(img, (int(w0 * r), int(h0 * r)), interpolation=interp)
-            seg_label = cv2.resize(seg_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
-            lane_label = cv2.resize(lane_label, (int(w0 * r), int(h0 * r)), interpolation=interp)
+
+        drivable_label = cv2.imread(data["mask"])
+
+        lane_label = cv2.imread(data["lane"])
+        lane_label = cv2.cvtColor(lane_label, cv2.COLOR_BGR2RGB)
+
+
+        #resize
+        (img, drivable_label, lane_label), ratio, pad = letterbox((img, drivable_label, lane_label),\
+                                         resized_shape, auto=True, scaleup=self.is_train)
         h, w = img.shape[:2]
-        
-        (img, seg_label, lane_label), ratio, pad = letterbox((img, seg_label, lane_label), resized_shape, auto=True, scaleup=self.is_train)
-        shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
-        # ratio = (w / w0, h / h0)
-        # print(resized_shape)
+
         
         det_label = data["label"]
+        
         labels=[]
         
         if det_label.size > 0:
             # Normalized xywh to pixel xyxy format
             labels = det_label.copy()
-            labels[:, 1] = ratio[0] * w * (det_label[:, 1] - det_label[:, 3] / 2) + pad[0]  # pad width
-            labels[:, 2] = ratio[1] * h * (det_label[:, 2] - det_label[:, 4] / 2) + pad[1]  # pad height
-            labels[:, 3] = ratio[0] * w * (det_label[:, 1] + det_label[:, 3] / 2) + pad[0]
-            labels[:, 4] = ratio[1] * h * (det_label[:, 2] + det_label[:, 4] / 2) + pad[1]
-            
+            labels[:, 1:5] = xywhn2xyxy(labels[:, 1:5], ratio[0] * w0, ratio[1] * h0, \
+                                        padw=pad[0], padh=pad[1])
+
+        # from utils.plot import plot_one_box
+        # colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(100)]    
+        # for cls,x1,y1,x2,y2 in labels:
+        #     xyxy = (x1,y1,x2,y2)
+        #     plot_one_box(xyxy, img, color=colors[int(cls)], label='car', line_thickness=1)
+        # cv2.imwrite("./batch_1_1_det_gt.png",img)
+
         if self.is_train:
-            combination = (img, seg_label, lane_label)
-            (img, seg_label, lane_label), labels = random_perspective(
+            combination = (img, drivable_label, lane_label)
+            (img, drivable_label, lane_label), labels = random_perspective(
                 combination=combination,
                 targets=labels,
-                degrees=self.hyp['rot_factor'],
-                translate=self.hyp['translate'],
-                scale=self.hyp['scale_factor'],
-                shear=self.hyp['shear']
+                degrees=hyp['rot_factor'],
+                translate=hyp['translate'],
+                scale=hyp['scale_factor'],
+                shear=hyp['shear']
             )
             #print(labels.shape)
-            augment_hsv(img, hgain=self.hyp['hsv_h'], sgain=self.hyp['hsv_s'], vgain=self.hyp['hsv_v'])
-            # img, seg_label, labels = cutout(combination=combination, labels=labels)
+            augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
+            # img, drivable_label, labels = cutout(combination=combination, labels=labels)
 
-            if len(labels):
-                # convert xyxy to xywh
-                labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
+        if len(labels):
+            # convert xyxy to xywh
+            labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
 
-                # Normalize coordinates 0 - 1
-                labels[:, [2, 4]] /= img.shape[0]  # height
-                labels[:, [1, 3]] /= img.shape[1]  # width
+            # Normalize coordinates 0 - 1
+            labels[:, [2, 4]] /= img.shape[0]  # height
+            labels[:, [1, 3]] /= img.shape[1]  # width
 
-            # if self.is_train:
-            # random left-right flip
-            lr_flip = True
-            if lr_flip and random.random() < 0.5:
+        if self.is_train:
+        # random left-right flip
+            if random.random() < hyp['fliplr']:
                 img = np.fliplr(img)
-                seg_label = np.fliplr(seg_label)
+                drivable_label = np.fliplr(drivable_label)
                 lane_label = np.fliplr(lane_label)
                 if len(labels):
                     labels[:, 1] = 1 - labels[:, 1]
 
             # random up-down flip
-            ud_flip = False
-            if ud_flip and random.random() < 0.5:
+            if random.random() < hyp['flipud']:
                 img = np.flipud(img)
-                seg_label = np.flipud(seg_label)
+                drivable_label = np.flipud(drivable_label)
                 lane_label = np.flipud(lane_label)
                 if len(labels):
                     labels[:, 2] = 1 - labels[:, 2]
-        
-        else:
-            if len(labels):
-                # convert xyxy to xywh
-                labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
-
-                # Normalize coordinates 0 - 1
-                labels[:, [2, 4]] /= img.shape[0]  # height
-                labels[:, [1, 3]] /= img.shape[1]  # width
 
         labels_out = torch.zeros((len(labels), 6))
         if len(labels):
@@ -220,48 +212,36 @@ class AutoDriveDataset(Dataset):
         # img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
         # img = img.transpose(2, 0, 1)
         img = np.ascontiguousarray(img)
-        # seg_label = np.ascontiguousarray(seg_label)
+        # drivable_label = np.ascontiguousarray(drivable_label)
         # if idx == 0:
-        #     print(seg_label[:,:,0])
-        # TODO
-        if self.num_seg_class == 3:
-            _,seg0 = cv2.threshold(seg_label[:,:,0],128,255,cv2.THRESH_BINARY)
-            _,seg1 = cv2.threshold(seg_label[:,:,1],1,255,cv2.THRESH_BINARY)
-            _,seg2 = cv2.threshold(seg_label[:,:,2],1,255,cv2.THRESH_BINARY)
-        else:
-            _,seg1 = cv2.threshold(seg_label,1,255,cv2.THRESH_BINARY)
-            _,seg2 = cv2.threshold(seg_label,1,255,cv2.THRESH_BINARY_INV)
-        _,lane1 = cv2.threshold(lane_label,1,255,cv2.THRESH_BINARY)
-        _,lane2 = cv2.threshold(lane_label,1,255,cv2.THRESH_BINARY_INV)
-        # _,seg2 = cv2.threshold(seg_label[:,:,2],1,255,cv2.THRESH_BINARY)
-        # # seg1[cutout_mask] = 0
-        # # seg2[cutout_mask] = 0
+        #     print(drivable_label[:,:,0])
         
-        # seg_label /= 255
-        # seg0 = self.Tensor(seg0)
-        # TODO
-        if self.num_seg_class == 3:
-            seg0 = self.Tensor(seg0)
-        seg1 = self.Tensor(seg1)
-        seg2 = self.Tensor(seg2)
-        # seg1 = self.Tensor(seg1)
-        # seg2 = self.Tensor(seg2)
-        lane1 = self.Tensor(lane1)
-        lane2 = self.Tensor(lane2)
-        # TODO
-        # seg_label = torch.stack((seg2[0], seg1[0]),0)
-        if self.num_seg_class == 3:
-            seg_label = torch.stack((seg0[0],seg1[0],seg2[0]),0)
-        else:
-            seg_label = torch.stack((seg2[0], seg1[0]),0)
-            
-        lane_label = torch.stack((lane2[0], lane1[0]),0)
-        # _, gt_mask = torch.max(seg_label, 0)
-        # _ = show_seg_result(img, gt_mask, idx, 0, save_dir='debug', is_gt=True)
+        
         
 
-        target = [labels_out, seg_label, lane_label]
+        drivable_label = one_hot_it_v11_dice(drivable_label, self.label_drivable_info)
+        lane_label = one_hot_it_v11_dice(lane_label, self.label_Lane_info)
+
+        # from PIL import Image
+        # aaa = img.copy()
+        # drivable_label_bool = drivable_label.copy().astype(dtype=bool)
+        # for i in range(0,len(drivable_label_bool[0,0])):
+        #     aaa[drivable_label_bool[:,:,i]] = self.label_drivable_info[list(self.label_drivable_info)[i]][:3]
+
+        # lane_label_bool = lane_label.copy().astype(dtype=bool)
+        # for i in range(1,len(lane_label_bool[0,0])):
+        #     aaa[lane_label_bool[:,:,i]] = self.label_Lane_info[list(self.label_Lane_info)[i]][:3]
+        # aaa = Image.fromarray(aaa, "RGB")
+        # aaa.save(f'{idx}.png')
+        # cv2.imwrite(f'{idx}.jpg',img)
+
+        drivable_label = self.Tensor(drivable_label)
+        lane_label = self.Tensor(lane_label)
+
+
         img = self.transform(img)
+        target = [labels_out, drivable_label, lane_label]
+        shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
         return img, target, data["image"], shapes
 
@@ -284,8 +264,8 @@ class AutoDriveDataset(Dataset):
         return torch.stack(img, 0), [torch.cat(label_det, 0), torch.stack(label_seg, 0), torch.stack(label_lane, 0)], paths, shapes
 
 class BddDataset(AutoDriveDataset):
-    def __init__(self, args, hyp, data_dict, is_train, transform=None):
-        super().__init__(args, hyp, data_dict, is_train, transform)
+    def __init__(self, args, hyp, data_dict, dataSet, is_train, transform=None):
+        super().__init__(args, hyp, data_dict, dataSet, is_train, transform)
         self.db = self.__get_db()
         
     def __get_db(self):
@@ -300,42 +280,49 @@ class BddDataset(AutoDriveDataset):
             lane: path of the lane segmentation label path
         """
         gt_db = []
-        for ImageName in tqdm(list(self.img_list)):
-            name = ImageName.name.split('.')[0]
-            label_path = str(self.label_root / (name+'.json'))
+        height, width = self.shapes
+        for mask in tqdm(list(self.mask_list)):
+            mask_path = str(mask)
+            label_path = mask_path.replace(str(self.mask_root), 
+                                str(self.label_root)).replace(".png", ".json")
+            image_path = mask_path.replace(str(self.mask_root), 
+                                str(self.img_root)).replace(".png", ".jpg")
+            lane_path = mask_path.replace(str(self.mask_root), 
+                                str(self.lane_root))
 
-            rec = {
-                'image': str(self.img_root / (name+'.jpg')),
-                'label': self.__GetOD_GT(label_path),
-                'mask': str(self.mask_root / (name+'.png')),
-                'lane': str(self.lane_root / (name+'.png'))
-            }
+            with open(label_path, 'r') as f:
+                label = json.load(f)
+            data = label['frames'][0]['objects']
+            data = self.filter_data(data)
+            gt = np.zeros((len(data), 5))
 
-            gt_db.append(rec)
+
+            for idx, obj in enumerate(data):
+                category = obj['category']
+                # if category == "traffic light":
+                #     color = obj['attributes']['trafficLightColor']
+                #     category = "tl_" + color
+                if category in self.data_dict['Det_names']:
+                    x1 = float(obj['box2d']['x1'])
+                    y1 = float(obj['box2d']['y1'])
+                    x2 = float(obj['box2d']['x2'])
+                    y2 = float(obj['box2d']['y2'])
+
+                    gt[idx][0] = self.data_dict['Det_names'].index(category) 
+                    box = convert((width, height), (x1, x2, y1, y2))
+                    gt[idx][1:] = list(box)
+
+            rec = [{
+                'image': image_path,
+                'label': gt,
+                'mask': mask_path,
+                'lane': lane_path
+            }]
+
+            gt_db += rec
         return gt_db
 
-    def __GetOD_GT(self, label_path):
-        height, width = self.shapes
-        with open(label_path, 'r') as f:
-                label = json.load(f)    
-        data = label['frames'][0]['objects']
-        data = self.filter_data(data)
-        gt = np.zeros((len(data), 5))
-        for idx, obj in enumerate(data):
-            category = obj['category']
-            if obj['category'] in id_dict.keys():
-                x1 = float(obj['box2d']['x1'])
-                y1 = float(obj['box2d']['y1'])
-                x2 = float(obj['box2d']['x2'])
-                y2 = float(obj['box2d']['y2'])
-
-                gt[idx][0] = 0 if single_cls else id_dict[category]
-                box = convert((width, height), (x1, x2, y1, y2))
-                gt[idx][1:] = list(box)
-        return gt
-
     def filter_data(self, data: list)->list:
-        # TODO deal with dataset(don't convert evert time)
         """Filter useless image in the dataset
 
         Args:
@@ -347,10 +334,7 @@ class BddDataset(AutoDriveDataset):
         remain = []
         for obj in data:
             if 'box2d' in obj.keys():  # obj.has_key('box2d'):
-                if single_cls:
-                    if obj['category'] in id_dict_single.keys():
-                        remain.append(obj)
-                else:
+                if obj['category'] in self.data_dict['Det_names']:
                     remain.append(obj)
         return remain
 
