@@ -13,7 +13,7 @@ import torch
 
 
 
-from utils.loss import get_loss
+from utils.loss import MultiHeadLoss
 from models.YOLOP import Model
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device, time_synchronized
@@ -478,7 +478,7 @@ if __name__ == '__main__':
     model = Model(args.cfg, hyp['nc'], anchors).to(device)
 
     # loss function 
-    criterion = get_loss(hyp, device)
+    criterion = MultiHeadLoss(hyp, device)
 
     # load weights
     model_dict = model.state_dict()

@@ -43,8 +43,8 @@ class Model(nn.Module):
             logger.info(f"Overriding model.yaml Lane_nc={self.yaml['Lane_nc']} with nc={nc[1]}")
             logger.info(f"Overriding model.yaml driveArea_nc={self.yaml['driveArea_nc']} with nc={nc[2]}")
             self.yaml['Det_nc'] = nc[0]  # override yaml value
-            self.yaml['Lane_nc'] = nc[1]  # override yaml value
-            self.yaml['driveArea_nc'] = nc[2]  # override yaml value
+            self.yaml['driveArea_nc'] = nc[1]  # override yaml value
+            self.yaml['Lane_nc'] = nc[2]  # override yaml value
         if anchors:
             logger.info(f'Overriding model.yaml anchors with anchors={anchors}')
             self.yaml['anchors'] = round(anchors)  # override yaml value
