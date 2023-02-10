@@ -244,28 +244,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             predn = pred.clone()
             scale_coords(img[si].shape[1:], predn[:, :4], shapes[si][0], shapes[si][1])  # native-space pred
 
-            # Append to text file
-            if args.saveTxt:
-                gn = torch.tensor(shapes[si][0])[[1, 0, 1, 0]]  # normalization gain whwh
-                for *xyxy, conf, cls in predn.tolist():
-                    xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                    line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
-                    with open(save_dir / 'labels' / (path.stem + '.txt'), 'a') as f:
-                        f.write(('%g ' * len(line)).rstrip() % line + '\n')
-
-            # Append to pycocotools JSON dictionary
-            if args.saveJson:
-                # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
-                image_id = int(path.stem) if path.stem.isnumeric() else path.stem
-                box = xyxy2xywh(predn[:, :4])  # xywh
-                box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
-                for p, b in zip(pred.tolist(), box.tolist()):
-                    jdict.append({'image_id': image_id,
-                                  'category_id': coco91class[int(p[5])] if is_coco else int(p[5]),
-                                  'bbox': [round(x, 3) for x in b],
-                                  'score': round(p[4], 5)})
-
-
             # Assign all predictions as incorrect
             correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=device)
             if nl:
@@ -340,35 +318,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     # Plots
     confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
 
-    # Save JSON
-    if args.saveJson and len(jdict):
-        w = Path(weights[0] if isinstance(weights, list) else weights).stem if weights is not None else ''  # weights
-        anno_json = '../coco/annotations/instances_val2017.json'  # annotations json
-        pred_json = str(save_dir / f"{w}_predictions.json")  # predictions json
-        print('\nEvaluating pycocotools mAP... saving %s...' % pred_json)
-        with open(pred_json, 'w') as f:
-            json.dump(jdict, f)
 
-        try:  # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-            from pycocotools.coco import COCO
-            from pycocotools.cocoeval import COCOeval
-
-            anno = COCO(anno_json)  # init annotations api
-            pred = anno.loadRes(pred_json)  # init predictions api
-            eval = COCOeval(anno, pred, 'bbox')
-            if is_coco:
-                eval.params.imgIds = [int(Path(x).stem) for x in val_loader.dataset.img_files]  # image IDs to evaluate
-            eval.evaluate()
-            eval.accumulate()
-            eval.summarize()
-            map, map50 = eval.stats[:2]  # update results (mAP@0.5:0.95, mAP@0.5)
-        except Exception as e:
-            print(f'pycocotools unable to run: {e}')
-
-    # Return results
-    if not training:
-        s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if args.saveTxt else ''
-        print(f"Results saved to {save_dir}{s}")
     model.float()  # for training
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
@@ -415,9 +365,6 @@ def parse_args():
                             help='[train, test] image sizes')
     parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 
                             help='[train, test] original image sizes')
-    parser.add_argument('--saveJson', type=bool, default=False)
-    parser.add_argument('--saveTxt', type=bool, default=False)
-    parser.add_argument('--allplot', type=bool, default=False)
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--weights', type=str, default='./weights/epoch-5.pth', 
@@ -426,7 +373,6 @@ def parse_args():
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
-    parser.add_argument('--num_seg_class', type=int, default=2)
     # dataset
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')

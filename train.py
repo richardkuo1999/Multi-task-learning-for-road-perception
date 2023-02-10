@@ -269,8 +269,6 @@ def parse_args():
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
-    parser.add_argument('--saveJson', type=bool, default=False)
-    parser.add_argument('--saveTxt', type=bool, default=False)
     parser.add_argument('--resume', type=str, default='',
                             help='Resume the weight  runs/train/BddDataset/')
     parser.add_argument('--need_autoanchor', type=bool, default=False,
