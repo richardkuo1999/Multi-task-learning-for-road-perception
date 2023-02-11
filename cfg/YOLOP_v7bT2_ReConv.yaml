@@ -1,7 +1,7 @@
 # parameters
 Det_nc: 1  # number of classes
-Lane_nc: 1  # number of classes
-driveArea_nc: 1  # number of classes
+Lane_nc: 2  # number of classes
+driveArea_nc: 2  # number of classes
 depth_multiple: 1.0  # model depth multiple
 width_multiple: 1.0  # layer channel multiple
 HeadOut: [77, 94, 110] # Det_out_idx, Da_Segout_idx, LL_Segout_idx

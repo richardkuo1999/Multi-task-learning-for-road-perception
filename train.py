@@ -17,7 +17,7 @@ import torch.backends.cudnn
 
 
 
-from utils.loss import get_loss
+from utils.loss import MultiHeadLoss
 from utils.metrics import fitness
 from test import test
 from utils.autoanchor import check_anchors
@@ -54,7 +54,7 @@ def main(args, hyp, device, writer):
     Det_class = data_dict['Det_names']
     Lane_class = data_dict['Lane_names']
     DriveArea_class = data_dict['DriveArea_names']
-    hyp.update({'nc':[len(Det_class), len(Lane_class), len(DriveArea_class)]})
+    hyp.update({'nc':[len(Det_class), len(DriveArea_class), len(Lane_class)]})
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
     logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
@@ -75,7 +75,7 @@ def main(args, hyp, device, writer):
     model = Model(args.cfg, hyp['nc'], anchors).to(device)
 
     # loss function 
-    criterion = get_loss(hyp, device)
+    criterion = MultiHeadLoss(hyp, device)
 
     # Optimizer
     optimizer = get_optimizer(hyp, model)                               
@@ -83,7 +83,7 @@ def main(args, hyp, device, writer):
     # resume 
     if(args.resume):
         checkpoint = torch.load(args.resume)
-        begin_epoch = checkpoint['epoch']
+        begin_epoch += checkpoint['epoch']
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         global_steps = checkpoint['global_steps']+1
@@ -104,7 +104,7 @@ def main(args, hyp, device, writer):
     num_batch = len(train_loader)
     
     valid_loader, valid_dataset = create_dataloader(args, hyp, data_dict,\
-                                                args.train_batch_size, normalize, \
+                                                args.test_batch_size, normalize, \
                                                     is_train=False, shuffle=False)
 
     print('load data finished')
@@ -145,6 +145,11 @@ def main(args, hyp, device, writer):
             batch_time = AverageMeter()
             data_time = AverageMeter()
             losses = AverageMeter()
+            lbox = AverageMeter()
+            lobj = AverageMeter()
+            lcls = AverageMeter()
+            lseg_da = AverageMeter()
+            lseg_ll = AverageMeter()
             num_iter = i + num_batch * (epoch - 1)
 
             if num_iter < num_warmup:
@@ -176,14 +181,18 @@ def main(args, hyp, device, writer):
                 total_loss, head_losses = criterion(outputs, target, shapes,model)
 
             # compute gradient and do update step
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             scaler.scale(total_loss).backward()
             scaler.step(optimizer)
             scaler.update()
 
             # measure accuracy and record loss
             losses.update(total_loss.item(), input.size(0))
-
+            lbox.update(head_losses[0], input.size(0))
+            lobj.update(head_losses[1], input.size(0))
+            lcls.update(head_losses[2], input.size(0))
+            lseg_da.update(head_losses[3], input.size(0))
+            lseg_ll.update(head_losses[4], input.size(0))
             # _, avg_acc, cnt, pred = accuracy(output.detach().cpu().numpy(),
             #                                  target.detach().cpu().numpy())
             # acc.update(avg_acc, cnt)
@@ -191,15 +200,26 @@ def main(args, hyp, device, writer):
             # measure elapsed time
             batch_time.update(time.time() - start)
             if i % 10 == 0:
-                msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}]   '+\
-                        f'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)    '+\
-                        f'peed {input.size(0)/batch_time.val:.1f} samples/s     '+\
-                        f'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)      '+\
-                        f'Loss {losses.val:.5f} ({losses.avg:.5f})'
+                msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}] '+\
+                        f'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)  '+\
+                        f'peed {input.size(0)/batch_time.val:.1f} samples/s  '+\
+                        f'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)  '+\
+                        f'Loss {losses.val:.5f} ({losses.avg:.5f})  '
+                msg +=  '\n                   '+\
+                        f'lbox {lbox.val:.5f}  '+\
+                        f'lobj {lobj.val:.5f}  '+\
+                        f'lcls {lcls.val:.5f}  '+\
+                        f'lseg_da {lseg_da.val:.5f}  '+\
+                        f'lseg_ll {lseg_ll.val:.5f}'
                 logger.info(msg)
                 # Write 
                 write_log(results_file, msg)
                 writer.add_scalar('train_loss', losses.val, global_steps)
+                writer.add_scalar('lbox', lbox.val, global_steps)
+                writer.add_scalar('lobj', lobj.val, global_steps)
+                writer.add_scalar('lcls', lcls.val, global_steps)
+                writer.add_scalar('lseg_da', lseg_da.val, global_steps)
+                writer.add_scalar('lseg_ll', lseg_ll.val, global_steps)
                 global_steps += 1
 
         lr_scheduler.step()
@@ -222,8 +242,8 @@ def main(args, hyp, device, writer):
 
             # print('validate')
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
-                epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file, 
-                                            Lane_color, DriveArea_color,logger, device)
+                epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
+                                        Det_class, Lane_color, DriveArea_color,logger, device)
 
             fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
 
@@ -243,14 +263,12 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                             help='model yaml path')
     parser.add_argument('--data', type=str, default='data/muti.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
-    parser.add_argument('--saveJson', type=bool, default=False)
-    parser.add_argument('--saveTxt', type=bool, default=False)
     parser.add_argument('--resume', type=str, default='',
                             help='Resume the weight  runs/train/BddDataset/')
     parser.add_argument('--need_autoanchor', type=bool, default=False,
@@ -260,9 +278,9 @@ def parse_args():
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--epochs', type=int, default=500)
-    parser.add_argument('--train_batch_size', type=int, default=10, 
+    parser.add_argument('--train_batch_size', type=int, default=11, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--test_batch_size', type=int, default=10, 
+    parser.add_argument('--test_batch_size', type=int, default=20, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')

@@ -20,12 +20,9 @@ def build_targets(hyp, predictions, targets, model):
     '''
     # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
     det = model.model[model.HeadOut[0]]  # Detect() module
-    # print(type(model))
-    # det = model.model[model.HeadOut[0]]
-    # print(type(det))
     na, nt = det.na, targets.shape[0]  # number of anchors, targets
     tcls, tbox, indices, anch = [], [], [], []
-    gain = torch.ones(7, device=targets.device)  # normalized to gridspace gain
+    gain = torch.ones(7, device=targets.device).long()  # normalized to gridspace gain
     ai = torch.arange(na, device=targets.device).float().view(na, 1).repeat(1, nt)  # same as .repeat_interleave(nt)
     targets = torch.cat((targets.repeat(na, 1, 1), ai[:, :, None]), 2)  # append anchor indices
     
@@ -69,7 +66,7 @@ def build_targets(hyp, predictions, targets, model):
         # Append
         a = t[:, 6].long()  # anchor indices
 
-        indices.append((b, a, gj.clamp_(0, gain[3].type(torch.int64) - 1), gi.clamp_(0, gain[2].type(torch.int64) - 1)))  # image, anchor, grid indices
+        indices.append((b, a, gj.clamp_(0, gain[3] - 1), gi.clamp_(0, gain[2] - 1)))  # image, anchor, grid indices
         tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
         anch.append(anchors[a])  # anchors
         tcls.append(c)  # class

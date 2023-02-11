@@ -10,13 +10,7 @@ val:
     - F:/dataset/BDD100k_10k/labels/bdd_lane_gt_muti/val   # Lane Detection
 
 # class names
-Det_names: ['car']
-
-# id_dict = {'person': 0, 'rider': 1, 'car': 2, 'bus': 3, 'truck': 4, 
-# 'bike': 5, 'motor': 6, 'tl_green': 7, 'tl_red': 8, 
-# 'tl_yellow': 9, 'tl_none': 10, 'traffic sign': 11, 'train': 12}
-# id_dict_single = {'car': 0, 'bus': 1, 'truck': 2,'train': 3}
-# # id_dict = {'car': 0, 'bus': 1, 'truck': 2}
+Det_names: ['car','truck','bus','motor','rider','person', 'traffic sign','traffic light'] # no train
 
 Lane_names: {
              'background'    : [  0,   0,   0], ## 'background' is need

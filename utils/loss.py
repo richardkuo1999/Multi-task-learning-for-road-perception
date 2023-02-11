@@ -1,6 +1,5 @@
-import torch.nn as nn
 import torch
-
+import torch.nn as nn
 
 from utils.general import bbox_iou
 from utils.metrics import  SegmentationMetric
@@ -11,23 +10,41 @@ class MultiHeadLoss(nn.Module):
     """
     collect all the loss we need
     """
-    def __init__(self, losses, hyp, lambdas=None):
+    def __init__(self, hyp, device):
         """
         Inputs:
         - losses: (list)[nn.Module, nn.Module, ...]
         - cfg: config object
-        - lambdas: (list) + IoU loss, weight for each loss
         """
         super().__init__()
-        # lambdas: [cls, obj, iou, la_seg, ll_seg, ll_iou]
-        if not lambdas:
-            lambdas = [1.0 for _ in range(len(losses) + 3)]
-        assert all(lam >= 0.0 for lam in lambdas)
-
-        self.losses = nn.ModuleList(losses)
-        self.lambdas = lambdas
+        
         self.hyp = hyp
         self.nc = hyp['nc']
+
+
+        # class loss criteria
+        BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
+        # object loss criteria
+        BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['obj_pos_weight']])).to(device)
+        # drivable area segmentation loss criteria
+        da_w = torch.ones(self.nc[1])
+        da_w[0] = 0.05
+        daseg = (nn.CrossEntropyLoss(weight=da_w) if self.nc[1] > 2 else  \
+                nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['seg_pos_weight']]))).to(device)
+        # lane line segmentation loss criteria
+        ll_w = torch.ones(self.nc[2])
+        ll_w[0] = 0.05
+        llseg = (nn.CrossEntropyLoss(weight=ll_w) if self.nc[2] > 2 else \
+                nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['seg_pos_weight']]))).to(device)
+        # Focal loss
+        gamma = hyp['fl_gamma']  # focal loss gamma
+        if gamma > 0:
+            BCEcls, BCEobj = FocalLoss(BCEcls, gamma), FocalLoss(BCEobj, gamma)
+
+        losses = [BCEcls, BCEobj, daseg, llseg]
+
+        self.losses = nn.ModuleList(losses)
+        
 
     def forward(self, head_fields, head_targets, shapes, model):
         """
@@ -41,16 +58,6 @@ class MultiHeadLoss(nn.Module):
         - head_losses: (tuple) contain all loss[loss1, loss2, ...]
 
         """
-        # head_losses = [ll
-        #                 for l, f, t in zip(self.losses, head_fields, head_targets)
-        #                 for ll in l(f, t)]
-        #
-        # assert len(self.lambdas) == len(head_losses)
-        # loss_values = [lam * l
-        #                for lam, l in zip(self.lambdas, head_losses)
-        #                if l is not None]
-        # total_loss = sum(loss_values) if loss_values else None
-        # print(model.nc)
         total_loss, head_losses = self._forward_impl(head_fields, head_targets, shapes, model)
 
         return total_loss, head_losses
@@ -70,21 +77,43 @@ class MultiHeadLoss(nn.Module):
         """
         hyp = self.hyp
         device = targets[0].device
+        _, _, daseg, llseg = self.losses
+
+        lbox, lobj, lcls, no = self.det_loss(predictions[0], targets[0], model, device)
+        lseg_da = self.seg_loss(predictions[1], targets[1], daseg, self.nc[1])
+        lseg_ll = self.seg_loss(predictions[2], targets[2], llseg, self.nc[2])
+        
+        s = 3 / no  # output count scaling
+
+        lcls *= hyp['cls_gain'] * s
+        lobj *= hyp['obj_gain'] * s * (1.4 if no == 4 else 1.)
+        lbox *= hyp['box_gain'] * s
+
+        lseg_da *= hyp['da_seg_gain']
+        lseg_ll *= hyp['ll_seg_gain']
+
+        loss = lbox + lobj + lcls + lseg_da + lseg_ll
+        # loss = lseg
+        # return loss * bs, torch.cat((lbox, lobj, lcls, loss)).detach()
+        return loss, (lbox.item(), lobj.item(), lcls.item(), lseg_da.item(), lseg_ll.item(), loss.item())
+
+    def det_loss(self, predictions, targets, model, device):
+        hyp = self.hyp
+        BCEcls, BCEobj, _, _ = self.losses
+
         lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
-        tcls, tbox, indices, anchors = build_targets(hyp, predictions[0], targets[0], model)  # targets
+        tcls, tbox, indices, anchors = build_targets(hyp, predictions, targets, model)  # targets
 
         # Class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
         cp, cn = smooth_BCE(eps=0.0)
 
-        BCEcls, BCEobj, BCEseg = self.losses
-
         # Calculate Losses
         nt = 0  # number of targets
-        no = len(predictions[0])  # number of outputs
+        no = len(predictions)  # number of outputs
         balance = [4.0, 1.0, 0.4] if no == 3 else [4.0, 1.0, 0.4, 0.1]  # P3-5 or P3-6
 
         # calculate detection loss
-        for i, pi in enumerate(predictions[0]):  # layer index, layer predictions
+        for i, pi in enumerate(predictions):  # layer index, layer predictions
             b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
             tobj = torch.zeros_like(pi[..., 0], device=device)  # target obj
 
@@ -110,95 +139,13 @@ class MultiHeadLoss(nn.Module):
                     t[range(n), tcls[i]] = cp
                     lcls += BCEcls(ps[:, 5:], t)  # BCE
             lobj += BCEobj(pi[..., 4], tobj) * balance[i]  # obj loss
-
-        drive_area_seg_predicts = predictions[1].view(-1)
-        drive_area_seg_targets = targets[1].view(-1)
-        lseg_da = BCEseg(drive_area_seg_predicts, drive_area_seg_targets)
-
-        lane_line_seg_predicts = predictions[2].view(-1)
-        lane_line_seg_targets = targets[2].view(-1)
-        lseg_ll = BCEseg(lane_line_seg_predicts, lane_line_seg_targets)
-
-        
-        #TODO  lane_line loss clase
-        metric = SegmentationMetric(self.nc[1])
-        nb, _, height, width = targets[1].shape
-        pad_w, pad_h = shapes[0][1][1]
-        pad_w = int(pad_w)
-        pad_h = int(pad_h)
-        _,lane_line_pred=torch.max(predictions[2], 1)
-        _,lane_line_gt=torch.max(targets[2], 1)
-        lane_line_pred = lane_line_pred[:, pad_h:height-pad_h, pad_w:width-pad_w]
-        lane_line_gt = lane_line_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
-        metric.reset()
-        metric.addBatch(lane_line_pred.cpu(), lane_line_gt.cpu())
-        IoU, _ = metric.IntersectionOverUnion()
-        liou_ll = 1 - IoU
-
-        s = 3 / no  # output count scaling
-        lcls *= hyp['cls_gain'] * s * self.lambdas[0]
-        lobj *= hyp['obj_gain'] * s * (1.4 if no == 4 else 1.) * self.lambdas[1]
-        lbox *= hyp['box_gain'] * s * self.lambdas[2]
-
-        lseg_da *= hyp['da_seg_gain'] * self.lambdas[3]
-        lseg_ll *= hyp['ll_seg_gain'] * self.lambdas[4]
-        liou_ll *= hyp['ll_iou_gain'] * self.lambdas[5]
-
-        
-        # if hyp['det_only'] or hyp['enc_det_only']:
-        #     lseg_da = 0 * lseg_da
-        #     lseg_ll = 0 * lseg_ll
-        #     liou_ll = 0 * liou_ll
-            
-        # if  hyp['seg_only'] or hyp['enc_seg_only'] or \
-        #                  hyp['lane_only'] or hyp['drivable_only']:
-        #     lcls = 0 * lcls
-        #     lobj = 0 * lobj
-        #     lbox = 0 * lbox
-
-        #     if hyp['lane_only']:
-        #         lseg_da = 0 * lseg_da
-
-        #     if hyp['drivable_only']:
-        #         lseg_ll = 0 * lseg_ll
-        #         liou_ll = 0 * liou_ll
-
-        loss = lbox + lobj + lcls + lseg_da + lseg_ll + liou_ll
-        # loss = lseg
-        # return loss * bs, torch.cat((lbox, lobj, lcls, loss)).detach()
-        return loss, (lbox.item(), lobj.item(), lcls.item(), lseg_da.item(), lseg_ll.item(), liou_ll.item(), loss.item())
-
-
-def get_loss(hyp, device):
-    """
-    get MultiHeadLoss
-
-    Inputs:
-    -cfg: configuration use the loss_name part or 
-          function part(like regression classification)
-    -device: cpu or gpu device
-
-    Returns:
-    -loss: (MultiHeadLoss)
-
-    """
-    # class loss criteria
-    BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
-    # object loss criteria
-    BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
-    # segmentation loss criteria
-    BCEseg = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
-    # Focal loss
-    gamma = hyp['fl_gamma']  # focal loss gamma
-    if gamma > 0:
-        BCEcls, BCEobj = FocalLoss(BCEcls, gamma), FocalLoss(BCEobj, gamma)
-
-    loss_list = [BCEcls, BCEobj, BCEseg]
-    loss = MultiHeadLoss(loss_list, hyp=hyp, lambdas=None ) #lambdas=hyp['multi_head_lambda']
-    return loss
-
-# example
-# class L1_Loss(nn.Module)
+        return lbox, lobj, lcls, no
+    def seg_loss(self, prediction, target, seg, nc):
+        if(nc == 2):
+            l_seg = seg(prediction.view(-1), target.view(-1))
+        else:
+            l_seg = seg(prediction, target)
+        return l_seg
 
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
