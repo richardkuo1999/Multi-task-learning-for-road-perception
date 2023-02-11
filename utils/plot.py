@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 
 import torch
 
+from utils.general import xywh2xyxy
+
 def color_list():
     # Return first 10 plt colors as (r,g,b) https://stackoverflow.com/questions/51350872/python-from-color-name-to-rgb
     def hex2rgb(h):
