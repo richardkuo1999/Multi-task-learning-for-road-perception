@@ -6,15 +6,17 @@ optimizer: adam
 warmup_epochs: 3.0  # warmup epochs (fractions ok)
 warmup_momentum: 0.8  # warmup initial momentum
 warmup_biase_lr: 0.1  # warmup initial bias lr
-box_gain: 0.05  # box loss gain
+
 cls_gain: 0.5  # cls loss gain
 obj_gain: 1.0  # obj loss gain (scale with pixels)
+box_gain: 0.05  # box loss gain
 da_seg_gain: 0.2  # driving area segmentation loss gain
-ll_seg_gain: 0.2  # lane line segmentation loss gain
-ll_iou_gain: 0.2 # lane line iou loss gain
+ll_seg_gain: 4.0  # lane line segmentation loss gain
+
 cls_pos_weight: 1.0  # classification loss positive weights
 obj_pos_weight: 1.0  # object loss positive weights
 seg_pos_weight: 1.0  # segmentation loss positive weights
+
 iou_thres: 0.2  # IoU training threshold
 anchor_threshold: 4.0  # anchor-multiple threshold
 # anchors: 3  # anchors per output layer (0 to ignore)

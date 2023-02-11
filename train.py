@@ -181,7 +181,7 @@ def main(args, hyp, device, writer):
                 total_loss, head_losses = criterion(outputs, target, shapes,model)
 
             # compute gradient and do update step
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             scaler.scale(total_loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -242,8 +242,8 @@ def main(args, hyp, device, writer):
 
             # print('validate')
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
-                epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file, 
-                                            Lane_color, DriveArea_color,logger, device)
+                epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
+                                        Det_class, Lane_color, DriveArea_color,logger, device)
 
             fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
 
@@ -280,7 +280,7 @@ def parse_args():
     parser.add_argument('--epochs', type=int, default=500)
     parser.add_argument('--train_batch_size', type=int, default=11, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--test_batch_size', type=int, default=10, 
+    parser.add_argument('--test_batch_size', type=int, default=20, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')

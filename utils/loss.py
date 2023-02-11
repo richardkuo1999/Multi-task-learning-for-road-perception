@@ -10,12 +10,11 @@ class MultiHeadLoss(nn.Module):
     """
     collect all the loss we need
     """
-    def __init__(self, hyp, device, lambdas=None):
+    def __init__(self, hyp, device):
         """
         Inputs:
         - losses: (list)[nn.Module, nn.Module, ...]
         - cfg: config object
-        - lambdas: (list) + IoU loss, weight for each loss
         """
         super().__init__()
         
@@ -26,27 +25,25 @@ class MultiHeadLoss(nn.Module):
         # class loss criteria
         BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
         # object loss criteria
-        BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']])).to(device)
+        BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['obj_pos_weight']])).to(device)
         # drivable area segmentation loss criteria
-        daseg = (nn.CrossEntropyLoss() if self.nc[1] > 2 else  \
-                nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']]))).to(device)
+        da_w = torch.ones(self.nc[1])
+        da_w[0] = 0.05
+        daseg = (nn.CrossEntropyLoss(weight=da_w) if self.nc[1] > 2 else  \
+                nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['seg_pos_weight']]))).to(device)
         # lane line segmentation loss criteria
-        llseg = (nn.CrossEntropyLoss() if self.nc[2] > 2 else \
-                nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['cls_pos_weight']]))).to(device)
+        ll_w = torch.ones(self.nc[2])
+        ll_w[0] = 0.05
+        llseg = (nn.CrossEntropyLoss(weight=ll_w) if self.nc[2] > 2 else \
+                nn.BCEWithLogitsLoss(pos_weight=torch.Tensor([hyp['seg_pos_weight']]))).to(device)
         # Focal loss
         gamma = hyp['fl_gamma']  # focal loss gamma
         if gamma > 0:
             BCEcls, BCEobj = FocalLoss(BCEcls, gamma), FocalLoss(BCEobj, gamma)
 
         losses = [BCEcls, BCEobj, daseg, llseg]
-        
-        # lambdas: [cls, obj, iou, la_seg, ll_seg, ll_iou]
-        if not lambdas:
-            lambdas = [1.0 for _ in range(6)]
-        assert all(lam >= 0.0 for lam in lambdas)
 
         self.losses = nn.ModuleList(losses)
-        self.lambdas = lambdas
         
 
     def forward(self, head_fields, head_targets, shapes, model):
@@ -61,16 +58,6 @@ class MultiHeadLoss(nn.Module):
         - head_losses: (tuple) contain all loss[loss1, loss2, ...]
 
         """
-        # head_losses = [ll
-        #                 for l, f, t in zip(self.losses, head_fields, head_targets)
-        #                 for ll in l(f, t)]
-        #
-        # assert len(self.lambdas) == len(head_losses)
-        # loss_values = [lam * l
-        #                for lam, l in zip(self.lambdas, head_losses)
-        #                if l is not None]
-        # total_loss = sum(loss_values) if loss_values else None
-        # print(model.nc)
         total_loss, head_losses = self._forward_impl(head_fields, head_targets, shapes, model)
 
         return total_loss, head_losses
@@ -98,12 +85,12 @@ class MultiHeadLoss(nn.Module):
         
         s = 3 / no  # output count scaling
 
-        lcls *= hyp['cls_gain'] * s * self.lambdas[0]
-        lobj *= hyp['obj_gain'] * s * (1.4 if no == 4 else 1.) * self.lambdas[1]
-        lbox *= hyp['box_gain'] * s * self.lambdas[2]
+        lcls *= hyp['cls_gain'] * s
+        lobj *= hyp['obj_gain'] * s * (1.4 if no == 4 else 1.)
+        lbox *= hyp['box_gain'] * s
 
-        lseg_da *= hyp['da_seg_gain'] * self.lambdas[3]
-        lseg_ll *= hyp['ll_seg_gain'] * self.lambdas[4]
+        lseg_da *= hyp['da_seg_gain']
+        lseg_ll *= hyp['ll_seg_gain']
 
         loss = lbox + lobj + lcls + lseg_da + lseg_ll
         # loss = lseg

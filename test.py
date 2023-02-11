@@ -28,7 +28,7 @@ from utils.general import colorstr, increment_path, write_log,non_max_suppressio
 logger = logging.getLogger(__name__)
 
 def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
-              results_file, Lane_color, DriveArea_color, logger=None, 
+              results_file, Det_class, Lane_color, DriveArea_color, logger=None, 
                                                         device='cpu'):
     """
     validata
@@ -55,13 +55,10 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     _, imgsz = [check_img_size(x, s=max_stride) for x in args.img_size]
     batch_size = args.test_batch_size
     training = False
-    is_coco = False #is coco dataset
-    save_conf=False # save auto-label confidences
     verbose=False
     save_hybrid=False
-    log_imgs = min(16,100)
 
-    nc = 1
+    nc = hyp['nc'][0]
      #iou vector for mAP@0.5:0.95
     iouv = torch.linspace(0.5,0.95,10).to(device)    
     niou = iouv.numel()
@@ -69,11 +66,10 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
     seen =  0 
     confusion_matrix = ConfusionMatrix(nc=hyp['nc'][0]) #detector confusion matrix
-    ll_metric = SegmentationMetric(hyp['nc'][1]) #lane line segment confusion matrix
-    da_metric = SegmentationMetric(hyp['nc'][2]) #drive area segment confusion matrix    
+    da_metric = SegmentationMetric(hyp['nc'][1]) #drive area segment confusion matrix    
+    ll_metric = SegmentationMetric(hyp['nc'][2]) #lane line segment confusion matrix
 
-    names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') \
-                                                        else model.module.names)}
+    names = Det_class
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
     coco91class = coco80_to_coco91_class()
     
@@ -209,7 +205,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     for *xyxy,conf,cls in reversed(det):
                         #print(cls)
                         label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=3)
+                        plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
                     cv2.imwrite(save_dir+"/batch_{}_{}_det_pred.png".format(epoch,i),img_det)
 
                     labels = target[0][target[0][:, 0] == i, 1:]
@@ -222,7 +218,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                         #print(cls)
                         label_det_gt = f'{names[int(cls)]}'
                         xyxy = (x1,y1,x2,y2)
-                        plot_one_box(xyxy, img_gt , label=label_det_gt, color=colors[int(cls)], line_thickness=3)
+                        plot_one_box(xyxy, img_gt , label=label_det_gt, color=colors[int(cls)], line_thickness=2)
                     cv2.imwrite(save_dir+"/batch_{}_{}_det_gt.png".format(epoch,i),img_gt)
 
         # Statistics per image
@@ -316,7 +312,8 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
     # Plots
-    confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
+    confusion_matrix.plot(save_dir=save_dir, names=list(names))
+    # confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
 
 
     model.float()  # for training
@@ -367,18 +364,15 @@ def parse_args():
                             help='[train, test] original image sizes')
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='./weights/epoch-5.pth', 
+    parser.add_argument('--weights', type=str, default='', 
                                                         help='model.pth path(s)')
-    parser.add_argument('--test_batch_size', type=int, default=1, 
+    parser.add_argument('--test_batch_size', type=int, default=20, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
     # dataset
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
-
-    parser.add_argument('--dataRoot', type=str, default='F:/dataset/BDD100k_10k', 
-                            help='the path of images folder')
 
     parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
     parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
@@ -404,7 +398,7 @@ if __name__ == '__main__':
     Det_class = data_dict['Det_names']
     Lane_class = data_dict['Lane_names']
     DriveArea_class = data_dict['DriveArea_names']
-    hyp.update({'nc':[len(Det_class), len(Lane_class), len(DriveArea_class)]})
+    hyp.update({'nc':[len(Det_class), len(DriveArea_class), len(Lane_class)]})
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
     logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
@@ -459,7 +453,7 @@ if __name__ == '__main__':
     with open(args.save_dir / 'args.yaml', 'w') as f:
         yaml.dump(vars(args), f, sort_keys=False)
     test(epoch, args, hyp, valid_loader, model, criterion,
-                args.save_dir, results_file, Lane_color, DriveArea_color, 
+                args.save_dir, results_file, Det_class, Lane_color, DriveArea_color, 
                                                         device = device)
 
     print("test finish")

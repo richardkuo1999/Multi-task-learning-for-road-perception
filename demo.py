@@ -45,7 +45,7 @@ def detect(args, device, expName):
     Det_class = data_dict['Det_names']
     Lane_class = data_dict['Lane_names']
     DriveArea_class = data_dict['DriveArea_names']
-    nc = [len(Det_class), len(Lane_class), len(DriveArea_class)]
+    nc = [len(Det_class), len(DriveArea_class), len(Lane_class)]
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
     logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
@@ -75,7 +75,7 @@ def detect(args, device, expName):
 
 
     # Get names and colors
-    names = model.module.names if hasattr(model, 'module') else model.names
+    names = Det_class
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
     # Run inference
@@ -184,11 +184,11 @@ def detect(args, device, expName):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--logDir', type=str, default='runs/YOLOP_v7b3',
+    parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='weights/epoch-5.pth', 
+    parser.add_argument('--weights', type=str, default='./runs/train/BddDataset/2023-02-10-10-27-16/weights/epoch-20.pth', 
                                                     help='model.pth path(s)')
-    parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                                     help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/muti.yaml', 
                                             help='dataset yaml path')
