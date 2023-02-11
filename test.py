@@ -22,7 +22,7 @@ from utils.metrics import ConfusionMatrix, SegmentationMetric, ap_per_class,\
                             output_to_target, ap_per_class
 from utils.general import colorstr, increment_path, write_log,non_max_suppression,\
                         check_img_size,scale_coords,xyxy2xywh,xywh2xyxy,\
-                        box_iou,coco80_to_coco91_class, data_color, AverageMeter
+                        box_iou, data_color, AverageMeter
 
 
 logger = logging.getLogger(__name__)
@@ -71,10 +71,8 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
     names = Det_class
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
-    coco91class = coco80_to_coco91_class()
+
     
-    s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 
-                                                        'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t_inf, t_nms = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     
     losses = AverageMeter()
@@ -94,7 +92,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     model.eval()
     jdict, stats, ap, ap_class = [], [], [], []
 
-    for batch_i, (img, target, paths, shapes) in tqdm(enumerate(val_loader), total=len(val_loader)):
+    for batch_i, (img, target, paths, shapes) in enumerate(tqdm(val_loader)):
 
         img = img.to(device, non_blocking=True)
         target = [gt.to(device) for gt in target]
@@ -297,6 +295,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
     # Print results
     pf = '%20s' + '%12.3g' * 6  # print format
+    print(pf % ('class', 'Images', 'Labels', 'p', 'R', 'mAP@.5', 'mAP@.5:.95:'))
     print(pf % ('all', seen, nt.sum(), mp, mr, map50, map))
     #print(map70)
     #print(map75)
@@ -327,8 +326,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     # print(da_segment_result)
     # print(ll_segment_result)
     detect_result = np.asarray([mp, mr, map50, map])
-    # print('mp:{},mr:{},map50:{},map:{}'.format(mp, mr, map50, map))
-    #print segmet_result
     t = [T_inf.avg, T_nms.avg]
 
     msg = f'Epoch: [{epoch}]    Loss({losses.avg:.3f})\n\
@@ -436,7 +433,7 @@ if __name__ == '__main__':
     model.nc = hyp['nc'][0]
     print('bulid model finished')
 
-    epoch = 0 #special for test
+    epoch = checkpoint['epoch'] #special for test
     # Save run settings
 
         # Data loading
