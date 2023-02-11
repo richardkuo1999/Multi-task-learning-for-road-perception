@@ -223,23 +223,23 @@ def main(args, hyp, device, writer):
                 global_steps += 1
 
         lr_scheduler.step()
+
+        savepath = wdir / f'epoch-{epoch}.pth'
+        logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
+        ckpt = {
+            'epoch': epoch,
+            'state_dict':  model.state_dict(),
+            # 'best_state_dict': model.module.state_dict(),
+            # 'perf': perf_indicator,
+            'optimizer': optimizer.state_dict(),
+            'global_steps':global_steps-1,
+        }
+        torch.save(ckpt, savepath)
+        del ckpt
+
         # evaluate on validation set
         if (epoch >= args.val_start and (epoch % args.val_freq == 0 
                                                     or epoch == maxEpochs)):
-                                                    
-            savepath = wdir / f'epoch-{epoch}.pth'
-            logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
-            ckpt = {
-                'epoch': epoch,
-                'state_dict':  model.state_dict(),
-                # 'best_state_dict': model.module.state_dict(),
-                # 'perf': perf_indicator,
-                'optimizer': optimizer.state_dict(),
-                'global_steps':global_steps-1,
-            }
-            torch.save(ckpt, savepath)
-            del ckpt
-
             # print('validate')
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
                 epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
@@ -278,7 +278,7 @@ def parse_args():
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--epochs', type=int, default=500)
-    parser.add_argument('--train_batch_size', type=int, default=11, 
+    parser.add_argument('--train_batch_size', type=int, default=10, 
                             help='total batch size for all GPUs')
     parser.add_argument('--test_batch_size', type=int, default=20, 
                             help='total batch size for all GPUs')
