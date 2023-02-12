@@ -152,8 +152,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             target[0][:, 2:] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
             lb = [target[0][target[0][:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
             output = non_max_suppression(inf_out, conf_thres=hyp['nms_conf_threshold'], iou_thres=hyp['nms_iou_threshold'], labels=lb)
-            #output = non_max_suppression(inf_out, conf_thres=0.001, iou_thres=0.6)
-            #output = non_max_suppression(inf_out, conf_thres=cfg.TEST.NMS_CONF_THRES, iou_thres=cfg.TEST.NMS_IOU_THRES)
             t_nms = time_synchronized() - t
             if batch_i > 0:
                 T_nms.update(t_nms/img.size(0),img.size(0))
@@ -295,7 +293,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
     # Print results
     pf = '%20s' + '%12.3g' * 6  # print format
-    print(pf % ('class', 'Images', 'Labels', 'p', 'R', 'mAP@.5', 'mAP@.5:.95:'))
+    print(('%20s' + '%12.3s' * 6) % ('class', 'Images', 'Labels', 'p', 'R', 'mAP@.5', 'mAP@.5:.95:'))
     print(pf % ('all', seen, nt.sum(), mp, mr, map50, map))
     #print(map70)
     #print(map75)
@@ -359,6 +357,10 @@ def parse_args():
                             help='[train, test] image sizes')
     parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 
                             help='[train, test] original image sizes')
+    parser.add_argument('--conf-thres', type=float, default=0.25, 
+                                                help='object confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.45, 
+                                                    help='IOU threshold for NMS')
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--weights', type=str, default='', 
@@ -401,6 +403,11 @@ if __name__ == '__main__':
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
     Lane_color = data_color(Lane_class)
     DriveArea_color = data_color(DriveArea_class)
+
+    # update NMS thres
+    hyp.update({'nms_conf_threshold':args.conf_thres})
+    hyp.update({'nms_iou_threshold':args.iou_thres})
+
 
     # Directories
     args.save_dir = Path(increment_path(Path(args.logDir)/ args.dataset))  # increment run
