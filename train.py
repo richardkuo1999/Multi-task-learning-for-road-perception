@@ -25,7 +25,7 @@ from utils.torch_utils import select_device
 from utils.datasets import create_dataloader
 from models.YOLOP import get_optimizer, Model
 from utils.general import colorstr, set_logging, increment_path, write_log,\
-                         val_tensorboard, data_color, AverageMeter
+                         val_tensorboard, train_tensorboard, data_color, AverageMeter
 
 
 
@@ -35,9 +35,8 @@ logger = logging.getLogger(__name__)
 
 
 def main(args, hyp, device, writer):
-    begin_epoch = 1
-    global_steps = 0
-
+    begin_epoch, global_steps, best_fitness, fi = 1, 0, 0.0, 1.0
+    
     # Directories
     logger.info(colorstr('hyperparameter: ') + ', '\
                                 .join(f'{k}={v}' for k, v in hyp.items()))
@@ -46,6 +45,8 @@ def main(args, hyp, device, writer):
     wdir.mkdir(parents=True, exist_ok=True)  # make dir
     results_file = save_dir / 'results.txt'
 
+    last = wdir / f'last.pth'
+    best = wdir / f'best.pth'
   
 
     # Get class and class number
@@ -84,9 +85,12 @@ def main(args, hyp, device, writer):
     if(args.resume):
         checkpoint = torch.load(args.resume)
         begin_epoch += checkpoint['epoch']
+        global_steps = checkpoint['global_steps']+1
+        best_fitness = checkpoint['best_fitness']
+
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-        global_steps = checkpoint['global_steps']+1
+
         msg = f'{colorstr("=> loaded checkpoint")} "{args.resume}"(epoch {begin_epoch})'
         logger.info(msg)
         write_log(results_file, msg)
@@ -214,42 +218,56 @@ def main(args, hyp, device, writer):
                 logger.info(msg)
                 # Write 
                 write_log(results_file, msg)
-                writer.add_scalar('train_loss', losses.val, global_steps)
-                writer.add_scalar('lbox', lbox.val, global_steps)
-                writer.add_scalar('lobj', lobj.val, global_steps)
-                writer.add_scalar('lcls', lcls.val, global_steps)
-                writer.add_scalar('lseg_da', lseg_da.val, global_steps)
-                writer.add_scalar('lseg_ll', lseg_ll.val, global_steps)
+                # validation result tensorboard
+                train_tensorboard(writer, global_steps, losses.val, lbox.val, \
+                                    lobj.val, lcls.val, lseg_da.val, lseg_ll.val)
                 global_steps += 1
 
-        lr_scheduler.step()
+        lr_scheduler.step()      
 
-        savepath = wdir / f'epoch-{epoch}.pth'
-        logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
-        ckpt = {
-            'epoch': epoch,
-            'state_dict':  model.state_dict(),
-            # 'best_state_dict': model.module.state_dict(),
-            # 'perf': perf_indicator,
-            'optimizer': optimizer.state_dict(),
-            'global_steps':global_steps-1,
-        }
-        torch.save(ckpt, savepath)
-        del ckpt
 
         # evaluate on validation set
         if (epoch >= args.val_start and (epoch % args.val_freq == 0 
                                                     or epoch == maxEpochs)):
-            # print('validate')
+            savepath = wdir / f'epoch-{epoch}.pth'
+            logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
+            torch.save(ckpt, savepath)
+            del ckpt
+
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
                 epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
                                         Det_class, Lane_color, DriveArea_color,logger, device)
-
+            # TODO best weight choose
             fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
+            fi += (sum(da_segment_result)+sum(ll_segment_result))
+            if(fi > best_fitness):
+                best_fitness = fi
 
             # validation result tensorboard
             val_tensorboard(writer, global_steps-1, da_segment_result, 
                             ll_segment_result, detect_result, total_loss, maps, t)
+
+
+        ckpt = {
+            'epoch': epoch,
+            'best_fitness': best_fitness,
+            'global_steps':global_steps-1,
+            'state_dict':  model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+        }
+        # last
+        torch.save(ckpt, last)
+        # frequency
+        if (epoch % args.val_freq == 0 or epoch == maxEpochs):
+            savepath = wdir / f'epoch-{epoch}.pth'
+            torch.save(ckpt, savepath)
+        # best
+        if best_fitness == fi:
+            logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
+            torch.save(ckpt, best)
+
+
+        del ckpt
 
     torch.cuda.empty_cache()
     return
