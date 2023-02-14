@@ -229,10 +229,6 @@ def main(args, hyp, device, writer):
         # evaluate on validation set
         if (epoch >= args.val_start and (epoch % args.val_freq == 0 
                                                     or epoch == maxEpochs)):
-            savepath = wdir / f'epoch-{epoch}.pth'
-            logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
-            torch.save(ckpt, savepath)
-            del ckpt
 
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
                 epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
@@ -260,6 +256,7 @@ def main(args, hyp, device, writer):
         # frequency
         if (epoch % args.val_freq == 0 or epoch == maxEpochs):
             savepath = wdir / f'epoch-{epoch}.pth'
+            logger.info(f'{colorstr("=> saving checkpoint")} to {savepath}')
             torch.save(ckpt, savepath)
         # best
         if best_fitness == fi:
@@ -281,7 +278,7 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
                                             help='model yaml path')
     parser.add_argument('--data', type=str, default='data/muti.yaml', 
                                             help='dataset yaml path')
