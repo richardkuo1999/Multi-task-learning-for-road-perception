@@ -87,8 +87,15 @@ def increment_path(path, exist_ok=True, sep=''):
         i = [int(m.groups()[0]) for m in matches if m]  # indices
         n = max(i) + 1 if i else 2  # increment number
         return path / sep / n  # update path
+def train_tensorboard(writer, global_steps, losses, lbox, lobj, lcls, lseg_da, lseg_ll):
+    writer.add_scalar('train_loss', losses, global_steps)
+    writer.add_scalar('lbox', lbox, global_steps)
+    writer.add_scalar('lobj', lobj, global_steps)
+    writer.add_scalar('lcls', lcls, global_steps)
+    writer.add_scalar('lseg_da', lseg_da, global_steps)
+    writer.add_scalar('lseg_ll', lseg_ll, global_steps)
 
-def val_tensorboard(writer,global_steps, da_segment_result, ll_segment_result, detect_result,
+def val_tensorboard(writer, global_steps, da_segment_result, ll_segment_result, detect_result,
                      total_loss, maps, t):
     writer.add_scalar('val_loss', total_loss, global_steps)
     writer.add_scalar('Driving_area_Segment_Acc', da_segment_result[0], global_steps)
