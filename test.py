@@ -28,7 +28,7 @@ from utils.general import colorstr, increment_path, write_log,non_max_suppressio
 logger = logging.getLogger(__name__)
 
 def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
-              results_file, Det_class, Lane_color, DriveArea_color, logger=None, 
+              results_file, target_name, Lane_color, DriveArea_color, logger=None, 
                                                         device='cpu'):
     """
     validata
@@ -54,23 +54,20 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
      #imgsz is multiple of max_stride
     _, imgsz = [check_img_size(x, s=max_stride) for x in args.img_size]
     batch_size = args.test_batch_size
-    training = False
-    verbose=False
     save_hybrid=False
 
-    nc = hyp['nc'][0]
-     #iou vector for mAP@0.5:0.95
+    #iou vector for mAP@0.5:0.95
     iouv = torch.linspace(0.5,0.95,10).to(device)    
     niou = iouv.numel()
 
-
+    Det_nc, driveArea_nc, Lane_nc = hyp['nc'][0], hyp['nc'][1], hyp['nc'][2]
     seen =  0 
-    confusion_matrix = ConfusionMatrix(nc=hyp['nc'][0]) #detector confusion matrix
-    da_metric = SegmentationMetric(hyp['nc'][1]) #drive area segment confusion matrix    
-    ll_metric = SegmentationMetric(hyp['nc'][2]) #lane line segment confusion matrix
+    confusion_matrix = ConfusionMatrix(Det_nc) #detector confusion matrix
+    da_metric = SegmentationMetric(driveArea_nc) #drive area segment confusion matrix    
+    ll_metric = SegmentationMetric(Lane_nc) #lane line segment confusion matrix
 
-    names = Det_class
-    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+    Det_name, DriveArea_name, Lane_name,  = target_name[0], list(target_name[1].keys()), list(target_name[2].keys())
+    colors = [[random.randint(0, 255) for _ in range(3)] for _ in Det_name]
 
     
     p, r, f1, mp, mr, map50, map, t_inf, t_nms = 0., 0., 0., 0., 0., 0., 0., 0., 0.
@@ -112,37 +109,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             if batch_i > 0:
                 T_inf.update(t_inf/img.size(0),img.size(0))
 
-            inf_out,train_out = det_out
-
-            #driving area segment evaluation
-            _,da_predict=torch.max(da_seg_out, 1)
-            _,da_gt=torch.max(target[1], 1)
-            da_predict = da_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
-            da_gt = da_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
-
-            da_metric.reset()
-            da_metric.addBatch(da_predict.cpu(), da_gt.cpu())
-            da_acc = da_metric.pixelAccuracy()
-            da_IoU, da_mIoU = da_metric.IntersectionOverUnion()
-
-            da_acc_seg.update(da_acc,img.size(0))
-            da_IoU_seg.update(da_IoU,img.size(0))
-            da_mIoU_seg.update(da_mIoU,img.size(0))
-
-            #lane line segment evaluation
-            _,ll_predict=torch.max(ll_seg_out, 1)
-            _,ll_gt=torch.max(target[2], 1)
-            ll_predict = ll_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
-            ll_gt = ll_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
-
-            ll_metric.reset()
-            ll_metric.addBatch(ll_predict.cpu(), ll_gt.cpu())
-            ll_acc = ll_metric.lineAccuracy()
-            ll_IoU, ll_mIoU = ll_metric.IntersectionOverUnion()
-
-            ll_acc_seg.update(ll_acc,img.size(0))
-            ll_IoU_seg.update(ll_IoU,img.size(0))
-            ll_mIoU_seg.update(ll_mIoU,img.size(0))
+            inf_out, train_out = det_out
             
             total_loss, head_losses = criterion((train_out,da_seg_out, ll_seg_out), target, shapes,model)   #Compute loss
             losses.update(total_loss.item(), img.size(0))
@@ -200,7 +167,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                         det[:,:4] = scale_coords(img[i].shape[1:],det[:,:4],img_det.shape).round()
                     for *xyxy,conf,cls in reversed(det):
                         #print(cls)
-                        label_det_pred = f'{names[int(cls)]} {conf:.2f}'
+                        label_det_pred = f'{Det_name[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
                     cv2.imwrite(save_dir+"/batch_{}_{}_det_pred.png".format(epoch,i),img_det)
 
@@ -210,12 +177,44 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     if len(labels):
                         labels[:,1:5]=scale_coords(img[i].shape[1:],labels[:,1:5],img_gt.shape).round()
                     for cls,x1,y1,x2,y2 in labels:
-                        #print(names)
+                        #print(Det_name)
                         #print(cls)
-                        label_det_gt = f'{names[int(cls)]}'
+                        label_det_gt = f'{Det_name[int(cls)]}'
                         xyxy = (x1,y1,x2,y2)
                         plot_one_box(xyxy, img_gt , label=label_det_gt, color=colors[int(cls)], line_thickness=2)
                     cv2.imwrite(save_dir+"/batch_{}_{}_det_gt.png".format(epoch,i),img_gt)
+
+
+
+        #driving area segment evaluation
+        _,da_predict=torch.max(da_seg_out, 1)
+        _,da_gt=torch.max(target[1], 1)
+        da_predict = da_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
+        da_gt = da_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
+
+        da_metric.reset()
+        da_metric.addBatch(da_predict.cpu(), da_gt.cpu())
+        da_acc = da_metric.pixelAccuracy()
+        da_IoU, da_mIoU = da_metric.IntersectionOverUnion()
+
+        da_acc_seg.update(da_acc,img.size(0))
+        da_IoU_seg.update(da_IoU,img.size(0))
+        da_mIoU_seg.update(da_mIoU,img.size(0))
+
+        #lane line segment evaluation
+        _,ll_predict=torch.max(ll_seg_out, 1)
+        _,ll_gt=torch.max(target[2], 1)
+        ll_predict = ll_predict[:, pad_h:height-pad_h, pad_w:width-pad_w]
+        ll_gt = ll_gt[:, pad_h:height-pad_h, pad_w:width-pad_w]
+
+        ll_metric.reset()
+        ll_metric.addBatch(ll_predict.cpu(), ll_gt.cpu())
+        ll_acc = ll_metric.lineAccuracy()
+        ll_IoU, ll_mIoU = ll_metric.IntersectionOverUnion()
+
+        ll_acc_seg.update(ll_acc,img.size(0))
+        ll_IoU_seg.update(ll_IoU,img.size(0))
+        ll_mIoU_seg.update(ll_mIoU,img.size(0))
 
         # Statistics per image
         # output([xyxy,conf,cls])
@@ -271,11 +270,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             # Append statistics (correct, conf, pcls, tcls)
             stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
 
-        if  batch_i < 3:
-            f = save_dir +'/'+ f'test_batch{batch_i}_labels.jpg'  # labels
-            #Thread(target=plot_images, args=(img, target[0], paths, f, names), daemon=True).start()
-            f = save_dir +'/'+ f'test_batch{batch_i}_pred.jpg'  # predictions
-            #Thread(target=plot_images, args=(img, output_to_target(output), paths, f, names), daemon=True).start()
 
     # Compute statistics
     # stats : [[all_img_correct]...[all_img_tcls]]
@@ -284,37 +278,25 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     map70 = None
     map75 = None
     if len(stats) and stats[0].any():
-        p, r, ap, f1, ap_class = ap_per_class(*stats, plot=False, save_dir=save_dir, names=names)
+        p, r, ap, f1, ap_class = ap_per_class(*stats, plot=False, save_dir=save_dir, names=Det_name)
         ap50, ap70, ap75,ap = ap[:, 0], ap[:,4], ap[:,5],ap.mean(1)  # [P, R, AP@0.5, AP@0.5:0.95]
         mp, mr, map50, map70, map75, map = p.mean(), r.mean(), ap50.mean(), ap70.mean(),ap75.mean(),ap.mean()
-        nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
+        nt = np.bincount(stats[3].astype(np.int64), minlength=Det_nc)  # number of targets per class
     else:
         nt = torch.zeros(1)
 
-    # Print results
-    pf = '%20s' + '%12.3g' * 6  # print format
-    print(('%20s' + '%12.3s' * 6) % ('class', 'Images', 'Labels', 'p', 'R', 'mAP@.5', 'mAP@.5:.95:'))
-    print(pf % ('all', seen, nt.sum(), mp, mr, map50, map))
-    #print(map70)
-    #print(map75)
-
-    # Print results per class
-    if (verbose or (nc <= 20 and not training)) and nc > 1 and len(stats):
-        for i, c in enumerate(ap_class):
-            print(pf % (names[c], seen, nt[c], p[i], r[i], ap50[i], ap[i]))
-
     # Print speeds
     t = tuple(x / seen * 1E3 for x in (t_inf, t_nms, t_inf + t_nms)) + (imgsz, imgsz, batch_size)  # tuple
-    if not training:
-        print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
+    
+    print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
     # Plots
-    confusion_matrix.plot(save_dir=save_dir, names=list(names))
-    # confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
+    confusion_matrix.plot(save_dir=save_dir, names=list(Det_name))
+    # confusion_matrix.plot(save_dir=save_dir, names=list(Det_name.values()))
 
 
     model.float()  # for training
-    maps = np.zeros(nc) + map
+    maps = np.zeros(Det_nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
 
@@ -326,15 +308,39 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     detect_result = np.asarray([mp, mr, map50, map])
     t = [T_inf.avg, T_nms.avg]
 
-    msg = f'Epoch: [{epoch}]    Loss({losses.avg:.3f})\n\
-              Driving area Segment:    Acc({da_segment_result[0]:.3f})    IOU ({da_segment_result[1]:.3f})    mIOU({da_segment_result[2]:.3f})\n\
-              Lane line Segment:       Acc({ll_segment_result[0]:.3f})    IOU ({ll_segment_result[1]:.3f})    mIOU({ll_segment_result[2]:.3f})\n\
-              Detect:    P({detect_result[0]:.3f})      R({detect_result[1]:.3f})    mAP@0.5({detect_result[2]:.3f})    mAP@0.5:0.95({detect_result[3]:.3f})\n\
-              Time: inference({t[0]:.4f}s/frame)  nms({t[1]:.4f}s/frame)'
+    # Print results
+    msg = f'Epoch: [{epoch}]    Loss({losses.avg:.3f})\nDetect:\n'
+
+    if  Det_nc > 1 and len(stats):
+        pf = '%20s' + '%13g' * 6  # print format
+        msg += (('%20s' + '%13s' * 6) % ('class', 'Images', 'Labels', 'p', 'R', 'mAP@.5', 'mAP@.5:.95:')+'\n')
+        msg += pf % ('all', seen, nt.sum(), mp, mr, map50, map)
+        # Print results per class
+        for i, c in enumerate(ap_class):
+            msg += (pf % (Det_name[c], seen, nt[c], p[i], r[i], ap50[i], ap[i])+'\n')
+    
+    if  driveArea_nc > 1:
+        pf = '%20s' + '%13g' # print format
+        msg += 'Driving area Segment:\n'
+        msg += (('%20s' + '%13s') % ('class', 'IoU')+'\n')
+        for i, iou in enumerate(da_IoU_seg.avg):
+            msg += (pf % (DriveArea_name[i], iou)+'\n')
+
+    if  Lane_nc > 1:
+        pf = '%20s' + '%13g' # print format
+        msg += (('%20s' + '%13s') % ('class', 'IoU')+'\n')
+        msg += 'Driving area Segment:\n'
+        for i, iou in enumerate(ll_IoU_seg.avg):
+            msg += (pf % (Lane_name[i], iou)+'\n')    
+
+    msg += f'\n\n \
+            Driving area Segment:    Acc({da_segment_result[0]:.3f})    mIOU({da_segment_result[2]:.3f})\n\
+            Lane line Segment:       Acc({ll_segment_result[0]:.3f})    mIOU({ll_segment_result[2]:.3f})\n\
+            Detect:    P({detect_result[0]:.3f})      R({detect_result[1]:.3f})    mAP@0.5({detect_result[2]:.3f})    mAP@0.5:0.95({detect_result[3]:.3f})\n\
+            Time: inference({t[0]:.4f}s/frame)  nms({t[1]:.4f}s/frame)'
+    print(msg)
     if(logger):
         logger.info(msg)
-    else:
-        print(msg)
     write_log(results_file, msg)
 
     
@@ -363,7 +369,7 @@ def parse_args():
                                                     help='IOU threshold for NMS')
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='', 
+    parser.add_argument('--weights', type=str, default='weights/epoch-500.pth', 
                                                         help='model.pth path(s)')
     parser.add_argument('--test_batch_size', type=int, default=20, 
                             help='total batch size for all GPUs')
@@ -373,8 +379,6 @@ def parse_args():
     parser.add_argument('--dataset', type=str, default='BddDataset', 
                             help='save to dataset name')
 
-    parser.add_argument('--conf_thres', type=float, default=0.001, help='object confidence threshold')
-    parser.add_argument('--iou_thres', type=float, default=0.6, help='IOU threshold for NMS')
     return parser.parse_args()
 
 
@@ -395,18 +399,15 @@ if __name__ == '__main__':
     with open(args.data) as f:
         data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
     Det_class = data_dict['Det_names']
-    Lane_class = data_dict['Lane_names']
     DriveArea_class = data_dict['DriveArea_names']
+    Lane_class = data_dict['Lane_names']
     hyp.update({'nc':[len(Det_class), len(DriveArea_class), len(Lane_class)]})
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
-    logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+    logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
+    target_name = (Det_class, DriveArea_class, Lane_class)
     Lane_color = data_color(Lane_class)
     DriveArea_color = data_color(DriveArea_class)
-
-    # update NMS thres
-    hyp.update({'nms_conf_threshold':args.conf_thres})
-    hyp.update({'nms_iou_threshold':args.iou_thres})
 
 
     # Directories
@@ -456,8 +457,9 @@ if __name__ == '__main__':
         yaml.dump(hyp, f, sort_keys=False)
     with open(args.save_dir / 'args.yaml', 'w') as f:
         yaml.dump(vars(args), f, sort_keys=False)
+    
     test(epoch, args, hyp, valid_loader, model, criterion,
-                args.save_dir, results_file, Det_class, Lane_color, DriveArea_color, 
+                args.save_dir, results_file, target_name, Lane_color, DriveArea_color, 
                                                         device = device)
 
     print("test finish")

@@ -11,7 +11,7 @@ cls_gain: 0.5  # cls loss gain
 obj_gain: 1.0  # obj loss gain (scale with pixels)
 box_gain: 0.05  # box loss gain
 da_seg_gain: 0.2  # driving area segmentation loss gain
-ll_seg_gain: 4.0  # lane line segmentation loss gain
+ll_seg_gain: 1.0  # lane line segmentation loss gain
 
 cls_pos_weight: 1.0  # classification loss positive weights
 obj_pos_weight: 1.0  # object loss positive weights

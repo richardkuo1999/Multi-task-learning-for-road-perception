@@ -53,14 +53,15 @@ def main(args, hyp, device, writer):
     with open(args.data) as f:
         data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
     Det_class = data_dict['Det_names']
-    Lane_class = data_dict['Lane_names']
     DriveArea_class = data_dict['DriveArea_names']
+    Lane_class = data_dict['Lane_names']
     hyp.update({'nc':[len(Det_class), len(DriveArea_class), len(Lane_class)]})
     logger.info(f"{colorstr('Det_class: ')}{Det_class}")
-    logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     logger.info(f"{colorstr('DriveArea_class: ')}{DriveArea_class}")
+    logger.info(f"{colorstr('Lane_class: ')}{Lane_class}")
     Lane_color = data_color(Lane_class)
     DriveArea_color = data_color(DriveArea_class)
+    target_name = (Det_class, DriveArea_class, Lane_class)
     # Save run settings(hyp, args)
     with open(save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
@@ -232,7 +233,7 @@ def main(args, hyp, device, writer):
 
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
                 epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
-                                        Det_class, Lane_color, DriveArea_color,logger, device)
+                                        target_name, Lane_color, DriveArea_color,logger, device)
             # TODO best weight choose
             fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
             fi += (sum(da_segment_result)+sum(ll_segment_result))
@@ -278,9 +279,9 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/test.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/test2.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/muti.yaml', 
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
