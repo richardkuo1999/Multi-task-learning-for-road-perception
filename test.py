@@ -314,7 +314,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     if  Det_nc > 1 and len(stats):
         pf = '%20s' + '%13g' * 6  # print format
         msg += (('%20s' + '%13s' * 6) % ('class', 'Images', 'Labels', 'p', 'R', 'mAP@.5', 'mAP@.5:.95:')+'\n')
-        msg += pf % ('all', seen, nt.sum(), mp, mr, map50, map)
+        msg += (pf % ('all', seen, nt.sum(), mp, mr, map50, map)+'\n')
         # Print results per class
         for i, c in enumerate(ap_class):
             msg += (pf % (Det_name[c], seen, nt[c], p[i], r[i], ap50[i], ap[i])+'\n')
