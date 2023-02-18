@@ -218,9 +218,8 @@ class SegmentationMetric(object):
         intersection = np.diag(self.confusionMatrix)
         union = np.sum(self.confusionMatrix, axis=1) + np.sum(self.confusionMatrix, axis=0) - np.diag(self.confusionMatrix)
         IoU = intersection / union
-        IoU[np.isnan(IoU)] = 0
         mIoU = np.nanmean(IoU)
-        return IoU[1], mIoU
+        return IoU, mIoU
 
     def genConfusionMatrix(self, imgPredict, imgLabel):
         # remove classes from unlabeled pixels in gt image and predict
