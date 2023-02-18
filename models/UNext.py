@@ -336,7 +336,7 @@ class UNext(nn.Module):
         self.dbn2 = nn.BatchNorm2d(128)
         self.dbn3 = nn.BatchNorm2d(32)
         self.dbn4 = nn.BatchNorm2d(16)
-        self.HeadOut = [Detect(nc=num_classes[0] ,anchors=self.anchors, ch=[128,256,512])]
+        self.HeadOut = Detect(nc=num_classes[0] ,anchors=self.anchors, ch=[128,256,512])
         self.dafinal = nn.Conv2d(16, num_classes[1], kernel_size=1)
         self.llfinal = nn.Conv2d(16, num_classes[2], kernel_size=1)
 
@@ -412,7 +412,7 @@ class UNext(nn.Module):
         # print(detout2.shape)                                                                                    # 256, 40, 24  V
         detout3 = self.dbn8(self.decoder9(self.dbn7(self.decoder8(detout2))))
         # print(detout3.shape)                                                                                    # 512, 20, 12  V
-        deout = self.HeadOut[0]([out,detout2,detout3])
+        deout = self.HeadOut([out,detout2,detout3])
 
 
 
@@ -439,10 +439,9 @@ class Model(nn.Module):
   def __init__(self, cfg, nc, anchors=None, ch=3, ):
     super(Model, self).__init__()
     self.model = UNext(nc)
-    self.HeadOut = [self.model.HeadOut[0]]
 
     # Build strides, anchors
-    m = self.HeadOut[0]  # Detect()
+    m = self.model.HeadOut  # Detect()
     if isinstance(m, Detect):
         s = 128  # 2x min stride
         # for x in self.forward(torch.zeros(1, 3, s, s)):
@@ -458,7 +457,6 @@ class Model(nn.Module):
         # if nc[0] > 1:
         self._initialize_biases()# only run once
         # print('Strides: %s' % m.stride.tolist())
-        m.cuda()
 
     # Init weights, biases
     initialize_weights(self)
@@ -469,7 +467,7 @@ class Model(nn.Module):
         # https://arxiv.org/abs/1708.02002 section 3.3
         # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
         # m = self.model[-1]  # Detect() module
-        m = self.model.HeadOut[0]  # Detect() module
+        m = self.model.HeadOut  # Detect() module
         for mi, s in zip(m.m, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
             b.data[:, 4] += math.log(8 / (640 / s) ** 2)  # obj (8 objects per 640 image)
@@ -477,9 +475,10 @@ class Model(nn.Module):
             mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
 if __name__ == '__main__':
-  model = UNext([9,2,8])
-  input = torch.ones(1,3,640,384)
-  print(model)
+  model = Model(cfg=' ', nc=[8,2,9]).cuda()
+  input = torch.ones(1,3,640,384).cuda()
+#   print(model)
+  model.eval()
   output = model(input)
   print(output[0][0].shape)
   print(output[1].shape)
