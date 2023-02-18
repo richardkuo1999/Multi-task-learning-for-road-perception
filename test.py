@@ -329,7 +329,7 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
     if  Lane_nc > 1:
         pf = '%20s' + '%13g' # print format
         msg += (('%20s' + '%13s') % ('class', 'IoU')+'\n')
-        msg += 'Driving area Segment:\n'
+        msg += 'Lane line Segment:\n'
         for i, iou in enumerate(ll_IoU_seg.avg):
             msg += (pf % (Lane_name[i], iou)+'\n')    
 
