@@ -279,9 +279,9 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/RVL_Dataset.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')

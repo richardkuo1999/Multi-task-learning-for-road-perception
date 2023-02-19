@@ -1,0 +1,44 @@
+train: 
+    - F:/dataset/RVLDataset_w_marker_700/images/train               # image
+    - F:/dataset/RVLDataset_w_marker_700/labels/Object_gt/train # Object Detection
+    - F:/dataset/RVLDataset_w_marker_700/labels/seg_gt/train    # Drivable Area Detection
+    - F:/dataset/RVLDataset_w_marker_700/labels/lane_gt/train   # Lane Detection
+val: 
+    - F:/dataset/RVLDataset_w_marker_700/images/val               # image
+    - F:/dataset/RVLDataset_w_marker_700/labels/Object_gt/val # object detection
+    - F:/dataset/RVLDataset_w_marker_700/labels/seg_gt/val    # Drivable Area Detection
+    - F:/dataset/RVLDataset_w_marker_700/labels/lane_gt/val   # Lane Detection
+
+# class names
+Det_names: ['traffic sign'] # no train
+
+Lane_names: {
+             'background'            : [  0,   0,   0], ## 'background' is need
+             'solid_single_white'    : [237,  28,  36],
+             'solid_single_yellow'   : [163,  73, 164],
+             'solid_single_red'      : [185, 122,  87],
+             'solid_double_white'    : [136,   0,  21],
+             'solid_double_yellow'   : [112, 146, 190],
+             'dashed_single_white'   : [181, 230,  29],
+             'dashed_single_yellow'  : [153, 217, 234]
+            }
+DriveArea_names: {
+             'background'            : [  0,   0,   0], ## 'background' is need
+             'box_junction'          : [255, 242,   0],
+             'crosswalk'             : [ 34, 117,  76],
+             'stop_line'             : [ 61,  72, 204],
+             'left_arrow'            : [158, 159,  76],
+             'straight_arrow'        : [121, 138, 134],
+             'right_arrow'           : [ 41,  64,  96],
+             'left_straght_arrow'    : [  7, 102, 146],
+             'right_straght_arrow'   : [247, 153, 255],
+             'channelizing_line'     : [255, 204, 153],
+             'motor_prohibited'      : [155, 255, 153],
+             'slow'                  : [255, 153, 173],
+             'motor_priority_lane'   : [230, 224, 147],
+             'motor_waiting_zone'    : [ 35,  27,  87],
+             'left_turn_box'         : [193, 158, 155],
+             'motor_icon'            : [109,  29,  78],
+             'bike_icon'             : [  3, 164, 204],
+             'parking_lot'           : [175, 157, 185]
+                 }
