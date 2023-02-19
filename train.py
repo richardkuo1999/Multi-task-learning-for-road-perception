@@ -218,7 +218,7 @@ def main(args, hyp, device, writer):
                         f'lseg_ll {lseg_ll.val:.5f}'
                 logger.info(msg)
                 # Write 
-                write_log(results_file, msg)
+                # write_log(results_file, msg)
                 # validation result tensorboard
                 train_tensorboard(writer, global_steps, losses.val, lbox.val, \
                                     lobj.val, lcls.val, lseg_da.val, lseg_ll.val)
@@ -279,7 +279,7 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/test2.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
                                             help='model yaml path')
     parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
