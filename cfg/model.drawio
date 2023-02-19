@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="DI9hkpbush2CkFBEiirK" name="YOLOv7">
-        <mxGraphModel dx="3479" dy="1954" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+        <mxGraphModel dx="2186" dy="1392" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
             <root>
                 <mxCell id="Zm8Glern7GXOffrQvl0S-0"/>
                 <mxCell id="Zm8Glern7GXOffrQvl0S-1" parent="Zm8Glern7GXOffrQvl0S-0"/>
@@ -1886,7 +1886,7 @@
         </mxGraphModel>
     </diagram>
     <diagram id="9VEvMXJ9LxRkkzzHQIz1" name="YOLOP">
-        <mxGraphModel dx="2226" dy="1401" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+        <mxGraphModel dx="2186" dy="1392" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -8723,7 +8723,7 @@
         </mxGraphModel>
     </diagram>
     <diagram id="vlOwLAFeG35Cwy_U_v8y" name="Page-6">
-        <mxGraphModel dx="-1343" dy="1196" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+        <mxGraphModel dx="1578" dy="3652" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -11086,11 +11086,17 @@
                 <mxCell id="7m5jzFSlbyNwfQUX0-ST-36" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-size: 14px;&quot;&gt;640*640*num_class&lt;/span&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;labelBackgroundColor=none;fontSize=19;fontColor=#FF0000;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="7240" y="791.5000000000001" width="60" height="30" as="geometry"/>
                 </mxCell>
+                <mxCell id="kRO8_ZRJkvE8ihfU5m9r-1" value="&lt;h1&gt;&lt;b&gt;&lt;font color=&quot;#000000&quot; style=&quot;font-size: 200px&quot;&gt;test1&lt;/font&gt;&lt;/b&gt;&lt;/h1&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5D377;fontSize=50;fontStyle=0" vertex="1" parent="1">
+                    <mxGeometry x="4706.120000000001" y="-210" width="1332.03" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="kRO8_ZRJkvE8ihfU5m9r-2" value="&lt;h1&gt;&lt;b&gt;&lt;font color=&quot;#000000&quot; style=&quot;font-size: 200px&quot;&gt;test2&lt;/font&gt;&lt;/b&gt;&lt;/h1&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E5D377;fontSize=50;fontStyle=0" vertex="1" parent="1">
+                    <mxGeometry x="6164.320000000001" y="-230" width="1332.03" height="280" as="geometry"/>
+                </mxCell>
             </root>
         </mxGraphModel>
     </diagram>
     <diagram id="mAEb8XjAJwzhOn9V1Gux" name="Ablation study">
-        <mxGraphModel dx="2555" dy="2305" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+        <mxGraphModel dx="2186" dy="2219" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
             <root>
                 <mxCell id="NnpvyOsphEcPoA5-SCWE-0"/>
                 <mxCell id="NnpvyOsphEcPoA5-SCWE-1" parent="NnpvyOsphEcPoA5-SCWE-0"/>

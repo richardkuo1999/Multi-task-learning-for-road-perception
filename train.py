@@ -82,6 +82,8 @@ def main(args, hyp, device, writer):
     # Optimizer
     optimizer = get_optimizer(hyp, model)                               
 
+    assert args.resume == "" or args.pretrain == "" , \
+            f"can't not use Pretrain ({args.pretrain}) and resume ({args.resume}) same time"
     # resume 
     if(args.resume):
         checkpoint = torch.load(args.resume)
@@ -91,13 +93,24 @@ def main(args, hyp, device, writer):
 
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-
+        del checkpoint
         msg = f'{colorstr("=> loaded checkpoint")} "{args.resume}"(epoch {begin_epoch})'
         logger.info(msg)
         write_log(results_file, msg)
+
+    if(args.pretrain):
+        model_dict = model.state_dict()
+        checkpoint = torch.load(args.pretrain)
+        pretrained_dict = {k: v for k, v in checkpoint['state_dict'].items() \
+                if (k in model_dict.keys()) and (int(k.split('.')[1]) not in model.HeadOut)}
+        model_dict.update(pretrained_dict) 
+        model.load_state_dict(model_dict, True)
+        del model_dict
+        del checkpoint
+        msg = f'{colorstr("=> loaded checkpoint")} "{args.pretrain}"(epoch {begin_epoch})'
+        logger.info(msg)
+        write_log(results_file, msg)
     print("finish build model")
-
-
 
     # Data loading
     print("begin to load data")
@@ -218,7 +231,7 @@ def main(args, hyp, device, writer):
                         f'lseg_ll {lseg_ll.val:.5f}'
                 logger.info(msg)
                 # Write 
-                write_log(results_file, msg)
+                # write_log(results_file, msg)
                 # validation result tensorboard
                 train_tensorboard(writer, global_steps, losses.val, lbox.val, \
                                     lobj.val, lcls.val, lseg_da.val, lseg_ll.val)
@@ -279,9 +292,9 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/test2.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/RVL_Dataset.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
