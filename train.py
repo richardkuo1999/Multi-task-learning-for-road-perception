@@ -82,6 +82,8 @@ def main(args, hyp, device, writer):
     # Optimizer
     optimizer = get_optimizer(hyp, model)                               
 
+    assert args.resume == "" or args.pretrain == "" , \
+            f"can't not use Pretrain ({args.pretrain}) and resume ({args.resume}) same time"
     # resume 
     if(args.resume):
         checkpoint = torch.load(args.resume)
@@ -91,13 +93,24 @@ def main(args, hyp, device, writer):
 
         model.load_state_dict(checkpoint['state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-
+        del checkpoint
         msg = f'{colorstr("=> loaded checkpoint")} "{args.resume}"(epoch {begin_epoch})'
         logger.info(msg)
         write_log(results_file, msg)
+
+    if(args.pretrain):
+        model_dict = model.state_dict()
+        checkpoint = torch.load(args.pretrain)
+        pretrained_dict = {k: v for k, v in checkpoint['state_dict'].items() \
+                if (k in model_dict.keys()) and (int(k.split('.')[1]) not in model.HeadOut)}
+        model_dict.update(pretrained_dict) 
+        model.load_state_dict(model_dict, True)
+        del model_dict
+        del checkpoint
+        msg = f'{colorstr("=> loaded checkpoint")} "{args.pretrain}"(epoch {begin_epoch})'
+        logger.info(msg)
+        write_log(results_file, msg)
     print("finish build model")
-
-
 
     # Data loading
     print("begin to load data")
