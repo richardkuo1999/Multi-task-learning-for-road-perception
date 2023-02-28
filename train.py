@@ -23,7 +23,9 @@ from test import test
 from utils.autoanchor import check_anchors
 from utils.torch_utils import select_device
 from utils.datasets import create_dataloader
-from models.YOLOP import get_optimizer, Model
+# from models.YOLOP import get_optimizer, Model
+from models.YOLOP import get_optimizer
+# from models.UNext import Model
 from utils.general import colorstr, set_logging, increment_path, write_log,\
                          val_tensorboard, train_tensorboard, data_color, AverageMeter
 
@@ -35,6 +37,15 @@ logger = logging.getLogger(__name__)
 
 
 def main(args, hyp, device, writer):
+    # TODO dirty code
+    is_UNext = False
+    if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
+        from models.YOLOP import Model
+    else:
+        from models.UNext import Model
+        is_UNext = True
+    hyp['is_UNext'] = is_UNext
+
     begin_epoch, global_steps, best_fitness, fi = 1, 0, 0.0, 1.0
     
     # Directories
@@ -137,7 +148,11 @@ def main(args, hyp, device, writer):
                                                     imgsz=min(args.img_size))
     else:
         logger.info("anchors loaded successfully")
-        det = model.model[model.HeadOut[0]]
+        # TODO dirty code
+        if is_UNext:
+            det = model.model.HeadOut
+        else:
+            det = model.model[model.HeadOut[0]]
         logger.info(str(det.anchors))
 
 
@@ -292,9 +307,9 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/RVL_Dataset.yaml', 
+    parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
