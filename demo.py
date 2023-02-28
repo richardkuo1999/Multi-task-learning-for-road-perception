@@ -186,11 +186,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='./runs/train/BddDataset/2023-02-10-10-27-16/weights/epoch-20.pth', 
+    parser.add_argument('--weights', type=str, default='./weights/last.pth', 
                                                     help='model.pth path(s)')
     parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/muti.yaml', 
+    parser.add_argument('--data', type=str, default='data/RVL_Dataset.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--source', type=str, default='inference/images', 
                                                     help='source')  

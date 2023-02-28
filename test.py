@@ -355,7 +355,7 @@ def parse_args():
                             help='hyperparameter path')
     parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                                 help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/muti.yaml', 
+    parser.add_argument('--data', type=str, default='data/RVL_Dataset.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/test',
                             help='log directory')
@@ -369,7 +369,7 @@ def parse_args():
                                                     help='IOU threshold for NMS')
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='weights/epoch-500.pth', 
+    parser.add_argument('--weights', type=str, default='weights/last.pth', 
                                                         help='model.pth path(s)')
     parser.add_argument('--test_batch_size', type=int, default=20, 
                             help='total batch size for all GPUs')
