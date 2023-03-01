@@ -388,19 +388,17 @@ class UNext(nn.Module):
         out = out.flatten(2).transpose(1,2)
         for i, blk in enumerate(self.dblock1):
             out = blk(out, H, W)
+        out = self.dnorm3(out)
 
         ### Stage 3
         
-        out = self.dnorm3(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         out = F.relu(F.interpolate(self.dbn2(self.decoder2(out)),scale_factor=(2,2),mode ='bilinear'))
         out = torch.add(out,t3)
         _,_,H,W = out.shape
         out = out.flatten(2).transpose(1,2)
-        
         for i, blk in enumerate(self.dblock2):
             out = blk(out, H, W)
-
         out = self.dnorm4(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
@@ -423,7 +421,7 @@ class UNext(nn.Module):
         daout = torch.add(daout,t2)
         daout = F.relu(F.interpolate(self.dbn4(self.decoder4(daout)),scale_factor=(2,2),mode ='bilinear'))
         daout = torch.add(daout,t1)
-        daout = F.relu(F.interpolate(self.decoder5(daout),scale_factor=(2,2),mode ='bilinear'))
+        daout = F.relu(F.interpolate(self.dbn4(self.decoder5(daout)),scale_factor=(2,2),mode ='bilinear'))
 
         ### ll Conv Stage
 
@@ -431,7 +429,7 @@ class UNext(nn.Module):
         llout = torch.add(llout,t2)
         llout = F.relu(F.interpolate(self.dbn4(self.decoder4(llout)),scale_factor=(2,2),mode ='bilinear'))
         llout = torch.add(llout,t1)
-        llout = F.relu(F.interpolate(self.decoder5(llout),scale_factor=(2,2),mode ='bilinear'))
+        llout = F.relu(F.interpolate(self.dbn4(self.decoder5(llout)),scale_factor=(2,2),mode ='bilinear'))
         return [deout, self.dafinal(daout), self.llfinal(llout)]
 
 
