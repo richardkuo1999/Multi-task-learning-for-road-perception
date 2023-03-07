@@ -389,10 +389,10 @@ class UNext(nn.Module):
         for i, blk in enumerate(self.dblock1):
             out = blk(out, H, W)
         out = self.dnorm3(out)
+        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         ### Stage 3
         
-        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         out = F.relu(F.interpolate(self.dbn2(self.decoder2(out)),scale_factor=(2,2),mode ='bilinear'))
         out = torch.add(out,t3)
         _,_,H,W = out.shape
@@ -475,7 +475,8 @@ class Model(nn.Module):
 
 if __name__ == '__main__':
   model = Model(cfg=' ', nc=[8,2,9]).cuda()
-  input = torch.ones(1,3,640,384).cuda()
+  input = torch.ones(1,3,640,640).cuda()
+#   input = torch.ones(1,3,320,320).cuda()
 #   print(model)
   model.eval()
   output = model(input)

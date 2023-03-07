@@ -361,8 +361,6 @@ def parse_args():
                             help='log directory')
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
                             help='[train, test] image sizes')
-    parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 
-                            help='[train, test] original image sizes')
     parser.add_argument('--conf-thres', type=float, default=0.25, 
                                                 help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, 

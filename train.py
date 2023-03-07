@@ -342,8 +342,6 @@ def parse_args():
 
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
                             help='[train, test] image sizes')
-    parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 
-                            help='[train, test] original image sizes')
 
     parser.add_argument('--pretrain', type=str, default='', 
                             help='all branch pretrain')
