@@ -398,7 +398,8 @@ if __name__ == '__main__':
     if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
         from models.YOLOP import Model
     else:
-        from models.UNext import Model
+        # from models.UNext import Model
+        from models.model import Model
         is_UNext = True
     hyp['is_UNext'] = is_UNext
 
