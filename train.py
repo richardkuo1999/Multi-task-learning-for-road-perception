@@ -23,9 +23,9 @@ from test import test
 from utils.autoanchor import check_anchors
 from utils.torch_utils import select_device
 from utils.datasets import create_dataloader
-# from models.YOLOP import get_optimizer, Model
-from models.YOLOP import get_optimizer
-# from models.UNext import Model
+# from models.YOLOP import Model, get_optimizer
+# from models.UNext import Model, get_optimizer
+from models.model import Model, get_optimizer
 from utils.general import colorstr, set_logging, increment_path, write_log,\
                          val_tensorboard, train_tensorboard, data_color, AverageMeter
 
@@ -42,7 +42,8 @@ def main(args, hyp, device, writer):
     if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
         from models.YOLOP import Model
     else:
-        from models.UNext import Model
+        # from models.UNext import Model
+        from models.model import Model
         is_UNext = True
     hyp['is_UNext'] = is_UNext
 
@@ -322,9 +323,9 @@ def parse_args():
     parser.add_argument('--device', default='', 
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--epochs', type=int, default=500)
-    parser.add_argument('--train_batch_size', type=int, default=10, 
+    parser.add_argument('--train_batch_size', type=int, default=5, 
                             help='total batch size for all GPUs')
-    parser.add_argument('--test_batch_size', type=int, default=20, 
+    parser.add_argument('--test_batch_size', type=int, default=5, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
@@ -342,8 +343,6 @@ def parse_args():
 
     parser.add_argument('--img_size', nargs='+', type=int, default=[640, 640], 
                             help='[train, test] image sizes')
-    parser.add_argument('--org_img_size', nargs='+', type=int, default=[720, 1280], 
-                            help='[train, test] original image sizes')
 
     parser.add_argument('--pretrain', type=str, default='', 
                             help='all branch pretrain')

@@ -73,7 +73,6 @@ class AutoDriveDataset(Dataset):
         self.data_dict = data_dict
         self.transform = transform
         self.inputsize = args.img_size
-        self.shapes = np.array(args.org_img_size)
 
         self.Tensor = transforms.ToTensor()
 
@@ -89,8 +88,6 @@ class AutoDriveDataset(Dataset):
 
         self.db = []
 
-        # self.target_type = args.MODEL.TARGET_TYPE
-        self.shapes = np.array(args.org_img_size)
     
     def _get_db(self):
         """
@@ -148,23 +145,24 @@ class AutoDriveDataset(Dataset):
                                          resized_shape, auto=True, scaleup=self.is_train)
         h, w = img.shape[:2]
 
+  
+            
+        labels = np.zeros((len(data["label"]), 5))
         
-        det_label = data["label"]
-        
-        labels=[]
-        
-        if det_label.size > 0:
+        if labels.size > 0:
+            for idx, label in enumerate(data["label"]):
+                labels[idx][0] = label[0]
+                labels[idx][1:] = convert((w0, h0), label[1:])
             # Normalized xywh to pixel xyxy format
-            labels = det_label.copy()
             labels[:, 1:5] = xywhn2xyxy(labels[:, 1:5], ratio[0] * w0, ratio[1] * h0, \
                                         padw=pad[0], padh=pad[1])
 
-        # from utils.plot import plot_one_box
-        # colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(100)]    
-        # for cls,x1,y1,x2,y2 in labels:
-        #     xyxy = (x1,y1,x2,y2)
-        #     plot_one_box(xyxy, img, color=colors[int(cls)], label='car', line_thickness=1)
-        # cv2.imwrite("./batch_1_1_det_gt.png",img)
+        from utils.plot import plot_one_box
+        colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(100)]    
+        for cls,x1,y1,x2,y2 in labels:
+            xyxy = (x1,y1,x2,y2)
+            plot_one_box(xyxy, img, color=colors[int(cls)], label=str(int(cls)), line_thickness=1)
+        cv2.imwrite("./batch_1_1_det_gt.png",img)
 
         if self.is_train:
             combination = (img, drivable_label, lane_label)
@@ -280,7 +278,6 @@ class BddDataset(AutoDriveDataset):
             lane: path of the lane segmentation label path
         """
         gt_db = []
-        height, width = self.shapes
         for mask in tqdm(list(self.mask_list)):
             mask_path = str(mask)
             label_path = mask_path.replace(str(self.mask_root), 
@@ -292,12 +289,12 @@ class BddDataset(AutoDriveDataset):
 
             with open(label_path, 'r') as f:
                 label = json.load(f)
-            data = label['frames'][0]['objects']
-            data = self.filter_data(data)
-            gt = np.zeros((len(data), 5))
+            obj_data = label['frames'][0]['objects']
+            obj_data = self.filter_data(obj_data)
+            gt = np.zeros((len(obj_data), 5))
 
 
-            for idx, obj in enumerate(data):
+            for idx, obj in enumerate(obj_data):
                 category = obj['category']
                 # if category == "traffic light":
                 #     color = obj['attributes']['trafficLightColor']
@@ -308,9 +305,8 @@ class BddDataset(AutoDriveDataset):
                     x2 = float(obj['box2d']['x2'])
                     y2 = float(obj['box2d']['y2'])
 
-                    gt[idx][0] = self.data_dict['Det_names'].index(category) 
-                    box = convert((width, height), (x1, x2, y1, y2))
-                    gt[idx][1:] = list(box)
+                    gt[idx] = [self.data_dict['Det_names'].index(category),
+                                  x1, x2, y1, y2]
 
             rec = [{
                 'image': image_path,

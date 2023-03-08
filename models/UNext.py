@@ -56,6 +56,18 @@ def initialize_weights(model):
         # elif t in [nn.LeakyReLU, nn.ReLU, nn.ReLU6]:
             m.inplace = True
 
+def get_optimizer(hyp, model):
+    if hyp['optimizer'] == 'sgd':
+        optimizer = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
+                                momentum=hyp['momentum'], weight_decay=hyp['wd'],
+                                nesterov=hyp['nesterov'])
+    elif hyp['optimizer'] == 'adam':
+        optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
+                                                betas=(hyp['momentum'], 0.999))   
+    return optimizer
+
 class Detect(nn.Module):
     stride = None  # strides computed during build
 
@@ -388,19 +400,17 @@ class UNext(nn.Module):
         out = out.flatten(2).transpose(1,2)
         for i, blk in enumerate(self.dblock1):
             out = blk(out, H, W)
+        out = self.dnorm3(out)
+        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
         ### Stage 3
         
-        out = self.dnorm3(out)
-        out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
         out = F.relu(F.interpolate(self.dbn2(self.decoder2(out)),scale_factor=(2,2),mode ='bilinear'))
         out = torch.add(out,t3)
         _,_,H,W = out.shape
         out = out.flatten(2).transpose(1,2)
-        
         for i, blk in enumerate(self.dblock2):
             out = blk(out, H, W)
-
         out = self.dnorm4(out)
         out = out.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
 
@@ -423,7 +433,7 @@ class UNext(nn.Module):
         daout = torch.add(daout,t2)
         daout = F.relu(F.interpolate(self.dbn4(self.decoder4(daout)),scale_factor=(2,2),mode ='bilinear'))
         daout = torch.add(daout,t1)
-        daout = F.relu(F.interpolate(self.decoder5(daout),scale_factor=(2,2),mode ='bilinear'))
+        daout = F.relu(F.interpolate(self.dbn4(self.decoder5(daout)),scale_factor=(2,2),mode ='bilinear'))
 
         ### ll Conv Stage
 
@@ -431,7 +441,7 @@ class UNext(nn.Module):
         llout = torch.add(llout,t2)
         llout = F.relu(F.interpolate(self.dbn4(self.decoder4(llout)),scale_factor=(2,2),mode ='bilinear'))
         llout = torch.add(llout,t1)
-        llout = F.relu(F.interpolate(self.decoder5(llout),scale_factor=(2,2),mode ='bilinear'))
+        llout = F.relu(F.interpolate(self.dbn4(self.decoder5(llout)),scale_factor=(2,2),mode ='bilinear'))
         return [deout, self.dafinal(daout), self.llfinal(llout)]
 
 
@@ -477,7 +487,8 @@ class Model(nn.Module):
 
 if __name__ == '__main__':
   model = Model(cfg=' ', nc=[8,2,9]).cuda()
-  input = torch.ones(1,3,640,384).cuda()
+  input = torch.ones(1,3,640,640).cuda()
+#   input = torch.ones(1,3,320,320).cuda()
 #   print(model)
   model.eval()
   output = model(input)

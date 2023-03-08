@@ -11,7 +11,7 @@ import torch
 import torchvision.transforms as transforms
 
 
-from models.YOLOP import Model
+# from models.YOLOP import Model
 from utils.datasets import LoadImages
 from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
@@ -34,6 +34,15 @@ transform=transforms.Compose([
 
 
 def detect(args, device, expName):
+
+    # TODO dirty code
+    is_UNext = False
+    if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
+        from models.YOLOP import Model
+    else:
+        from models.UNext import Model
+        is_UNext = True
+
     save_dir = args.save_dir
 
     save_dir.mkdir(parents=True, exist_ok=True)  # make dir
@@ -109,7 +118,6 @@ def detect(args, device, expName):
                                         iou_thres=args.iou_thres, classes=None, 
                                         agnostic=False)
         t4 = time_synchronized()
-
         nms_time.update(t4-t3,img.size(0))
         det=det_pred[0]
 
@@ -149,8 +157,12 @@ def detect(args, device, expName):
                     label_det_pred = f'{names[int(cls)]} {conf:.2f}'
                     plot_one_box(xyxy, img_det , label=label_det_pred, 
                                             color=colors[int(cls)], line_thickness=2)
-
-            fps= round(1/(inf_time.val+nms_time.val))
+            #FIXME fps Error
+            try:
+                fps= round(1/(inf_time.val+nms_time.val))
+            except:
+                fps =404
+            print(f'FPS:{fps}')
             img_det = addText2image(img_det, expName,fps)
             if dataset.mode == 'image':
                 cv2.imwrite(str(save_path),img_det)
@@ -186,13 +198,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='./weights/last.pth', 
+    parser.add_argument('--weights', type=str, default='./weights/epoch-95.pth', 
                                                     help='model.pth path(s)')
-    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/RVL_Dataset.yaml', 
+    parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
-    parser.add_argument('--source', type=str, default='inference/images', 
+    parser.add_argument('--source', type=str, default='F:/dataset/BDD100k_10k/images/test', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')

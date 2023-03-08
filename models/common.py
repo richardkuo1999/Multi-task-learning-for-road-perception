@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 from PIL import Image, ImageDraw
 import torch.nn.functional as F
-
+from collections import OrderedDict
+from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 def autopad(k, p=None):  # kernel, padding
     # Pad to 'same'
@@ -110,7 +111,84 @@ class Mish(nn.Module):
     def forward(x):
         return x * F.softplus(x).tanh()
 
+def resize(input,
+           size=None,
+           scale_factor=None,
+           mode='nearest',
+           align_corners=None,
+           warning=True):
+    if warning:
+        if size is not None and align_corners:
+            input_h, input_w = tuple(int(x) for x in input.shape[2:])
+            output_h, output_w = tuple(int(x) for x in size)
+            if output_h > input_h or output_w > output_h:
+                if ((output_h > 1 and output_w > 1 and input_h > 1
+                     and input_w > 1) and (output_h - 1) % (input_h - 1)
+                        and (output_w - 1) % (input_w - 1)):
+                    warnings.warn(
+                        f'When align_corners={align_corners}, '
+                        'the output would more aligned if '
+                        f'input size {(input_h, input_w)} is `x+1` and '
+                        f'out size {(output_h, output_w)} is `nx+1`')
+    if isinstance(size, torch.Size):
+        size = tuple(int(x) for x in size)
+    return F.interpolate(input, size, scale_factor, mode, align_corners)
+  
+class MLP(nn.Module):
+    """
+    Linear Embedding
+    """
+    def __init__(self, input_dim=2048, embed_dim=768):
+        super().__init__()
+        self.proj = nn.Linear(input_dim, embed_dim)
 
+    def forward(self, x):
+        x = x.flatten(2).transpose(1, 2)
+        x = self.proj(x)
+        return x
+    
+class OverlapPatchEmbed(nn.Module):
+    """ Image to Patch Embedding
+    """
+
+    def __init__(self, img_size=224, patch_size=7, stride=4, in_chans=3, embed_dim=768):
+        super().__init__()
+        img_size = to_2tuple(img_size)
+        patch_size = to_2tuple(patch_size)
+
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.H, self.W = img_size[0] // patch_size[0], img_size[1] // patch_size[1]
+        self.num_patches = self.H * self.W
+        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride,
+                              padding=(patch_size[0] // 2, patch_size[1] // 2))
+        self.norm = nn.LayerNorm(embed_dim)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            trunc_normal_(m.weight, std=.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+        elif isinstance(m, nn.Conv2d):
+            fan_out = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            fan_out //= m.groups
+            m.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            if m.bias is not None:
+                m.bias.data.zero_()
+
+    def forward(self, x):
+        x = self.proj(x)
+        _, _, H, W = x.shape
+        x = x.flatten(2).transpose(1, 2)
+        x = self.norm(x)
+
+        return x, H, W
+    
 class MemoryEfficientMish(nn.Module):
     class F(torch.autograd.Function):
         @staticmethod
@@ -160,7 +238,46 @@ class Conv(nn.Module):
     def fuseforward(self, x):
         return self.act(self.conv(x))
 
+class E_ELAN(nn.Module):
+    # Standard convolution
+    def __init__(self, c1, c2):  # ch_in, ch_out, kernel, stride, padding, groups
+        super(E_ELAN, self).__init__()
+        c2 //= 4 
+        self.layer1 = Conv(c1, c2, 1, 1)
+        self.layer2 = nn.Sequential(OrderedDict([
+                            ('conv1', Conv(c1,c2,1,1)),
+                            ('conv2', Conv(c2,c2,3,1)),
+                            ]))  
+        self.layer3 = nn.Sequential(OrderedDict([
+                            ('conv1', Conv(c2,c2,3,1)),
+                            ('conv2', Conv(c2,c2,3,1)),
+                            ]))  
+        self.layer4 = Conv(c2, c2, 3, 1)
+    def forward(self, x):
+        x1 = self.layer1(x)
+        x2 = self.layer2(x)
+        x3 = self.layer3(x2)
+        x4 = self.layer4(x3)
 
+        return torch.cat((x1, x2, x3, x4), dim=1)
+
+
+class MPConv(nn.Module):
+    # Standard convolution
+    def __init__(self, c1, c2):  # ch_in, ch_out, kernel, stride, padding, groups
+        super(MPConv, self).__init__()
+        c2 //= 2 
+        self.layer1 = nn.Sequential(OrderedDict([
+                            ('MP', MP()),
+                            ('conv1', Conv(c1,c2,1,1)),
+                            ]))  
+        self.layer2 = nn.Sequential(OrderedDict([
+                            ('conv1', Conv(c1,c2,1,1)),
+                            ('conv2', Conv(c2,c2,3,2)),
+                            ]))  
+    def forward(self, x):
+        return torch.cat((self.layer1(x), self.layer2(x)), dim=1)
+    
 class Bottleneck(nn.Module):
     # Standard bottleneck
     def __init__(self, c1, c2, shortcut=True, g=1, e=0.5):  # ch_in, ch_out, shortcut, groups, expansion
