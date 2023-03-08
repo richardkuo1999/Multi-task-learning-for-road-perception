@@ -145,36 +145,15 @@ class AutoDriveDataset(Dataset):
                                          resized_shape, auto=True, scaleup=self.is_train)
         h, w = img.shape[:2]
 
-
-        with open(data["label"], 'r') as f:
-                label = json.load(f)
-        obj_data = label['frames'][0]['objects']
-        obj_data = self.filter_data(obj_data)
-        gt = np.zeros((len(obj_data), 5))
-
-
-        for idx, obj in enumerate(obj_data):
-            category = obj['category']
-            # if category == "traffic light":
-            #     color = obj['attributes']['trafficLightColor']
-            #     category = "tl_" + color
-            if category in self.data_dict['Det_names']:
-                x1 = float(obj['box2d']['x1'])
-                y1 = float(obj['box2d']['y1'])
-                x2 = float(obj['box2d']['x2'])
-                y2 = float(obj['box2d']['y2'])
-
-                gt[idx][0] = self.data_dict['Det_names'].index(category) 
-                box = convert((w0, h0), (x1, x2, y1, y2))
-                gt[idx][1:] = list(box)
-
-        det_label = gt
+  
+            
+        labels = np.zeros((len(data["label"]), 5))
         
-        labels=[]
-        
-        if det_label.size > 0:
+        if labels.size > 0:
+            for idx, label in enumerate(data["label"]):
+                labels[idx][0] = label[0]
+                labels[idx][1:] = convert((w0, h0), label[1:])
             # Normalized xywh to pixel xyxy format
-            labels = det_label.copy()
             labels[:, 1:5] = xywhn2xyxy(labels[:, 1:5], ratio[0] * w0, ratio[1] * h0, \
                                         padw=pad[0], padh=pad[1])
 
@@ -308,10 +287,30 @@ class BddDataset(AutoDriveDataset):
             lane_path = mask_path.replace(str(self.mask_root), 
                                 str(self.lane_root))
 
+            with open(label_path, 'r') as f:
+                label = json.load(f)
+            obj_data = label['frames'][0]['objects']
+            obj_data = self.filter_data(obj_data)
+            gt = np.zeros((len(obj_data), 5))
+
+
+            for idx, obj in enumerate(obj_data):
+                category = obj['category']
+                # if category == "traffic light":
+                #     color = obj['attributes']['trafficLightColor']
+                #     category = "tl_" + color
+                if category in self.data_dict['Det_names']:
+                    x1 = float(obj['box2d']['x1'])
+                    y1 = float(obj['box2d']['y1'])
+                    x2 = float(obj['box2d']['x2'])
+                    y2 = float(obj['box2d']['y2'])
+
+                    gt[idx] = [self.data_dict['Det_names'].index(category),
+                                  x1, x2, y1, y2]
 
             rec = [{
                 'image': image_path,
-                'label': label_path,
+                'label': gt,
                 'mask': mask_path,
                 'lane': lane_path
             }]

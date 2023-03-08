@@ -140,12 +140,14 @@ class MultiHeadLoss(nn.Module):
                     lcls += BCEcls(ps[:, 5:], t)  # BCE
             lobj += BCEobj(pi[..., 4], tobj) * balance[i]  # obj loss
         return lbox, lobj, lcls, no
+    # TODO inntergrading
     def seg_loss(self, prediction, target, seg, nc):
-        if(nc == 2):
-            l_seg = seg(prediction.view(-1), target.view(-1))
-        else:
-            l_seg = seg(prediction, target)
-        return l_seg
+        # if(nc == 2):
+        #     seg = seg(prediction.view(-1), target.view(-1))
+        # else:
+        #     seg = seg(prediction, target)
+        seg = seg(prediction, target)
+        return seg
 
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441

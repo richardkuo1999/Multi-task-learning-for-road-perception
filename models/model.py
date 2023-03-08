@@ -30,6 +30,18 @@ def initialize_weights(model):
         # elif t in [nn.LeakyReLU, nn.ReLU, nn.ReLU6]:
             m.inplace = True
 
+def get_optimizer(hyp, model):
+    if hyp['optimizer'] == 'sgd':
+        optimizer = torch.optim.SGD(
+            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
+                                momentum=hyp['momentum'], weight_decay=hyp['wd'],
+                                nesterov=hyp['nesterov'])
+    elif hyp['optimizer'] == 'adam':
+        optimizer = torch.optim.Adam(
+            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
+                                                betas=(hyp['momentum'], 0.999))   
+    return optimizer
+
 class UNext(nn.Module):
     def __init__(self, nc):
         super().__init__()
@@ -173,7 +185,7 @@ class UNext(nn.Module):
 
 
 class Model(nn.Module):
-  def __init__(self, nc, anchors=None, ch=3, ):
+  def __init__(self, cfg, nc, anchors=None, ch=3, ):
     super(Model, self).__init__()
     self.model = UNext(nc)
 
@@ -216,7 +228,7 @@ class Model(nn.Module):
 
 
 if __name__ == '__main__':
-  model = Model(nc=[8,2,9]).cuda()
+  model = Model(cfg=' ', nc=[8,2,9]).cuda()
   input = torch.ones(1,3,640,640).cuda()
   print(model)
 #   model.eval()
