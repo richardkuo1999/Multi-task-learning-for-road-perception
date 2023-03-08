@@ -157,12 +157,12 @@ class AutoDriveDataset(Dataset):
             labels[:, 1:5] = xywhn2xyxy(labels[:, 1:5], ratio[0] * w0, ratio[1] * h0, \
                                         padw=pad[0], padh=pad[1])
 
-        from utils.plot import plot_one_box
-        colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(100)]    
-        for cls,x1,y1,x2,y2 in labels:
-            xyxy = (x1,y1,x2,y2)
-            plot_one_box(xyxy, img, color=colors[int(cls)], label=str(int(cls)), line_thickness=1)
-        cv2.imwrite("./batch_1_1_det_gt.png",img)
+        # from utils.plot import plot_one_box
+        # colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(100)]    
+        # for cls,x1,y1,x2,y2 in labels:
+        #     xyxy = (x1,y1,x2,y2)
+        #     plot_one_box(xyxy, img, color=colors[int(cls)], label=str(int(cls)), line_thickness=1)
+        # cv2.imwrite("./batch_1_1_det_gt.png",img)
 
         if self.is_train:
             combination = (img, drivable_label, lane_label)
