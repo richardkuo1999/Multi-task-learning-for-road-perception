@@ -40,7 +40,8 @@ def detect(args, device, expName):
     if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
         from models.YOLOP import Model
     else:
-        from models.UNext import Model
+        # from models.UNext import Model
+        from models.model import Model
         is_UNext = True
 
     save_dir = args.save_dir
@@ -68,7 +69,6 @@ def detect(args, device, expName):
     model = model.to(device)
     if half:
         model.half()  # to FP16
-
 
     # calculate macs, params, flops, parameter count
     img = np.random.rand(384, 640, 3)
@@ -198,13 +198,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='./weights/epoch-95.pth', 
+    parser.add_argument('--weights', type=str, default='./weights/last.pth', 
                                                     help='model.pth path(s)')
     parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
                                                     help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/multi.yaml', 
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
-    parser.add_argument('--source', type=str, default='F:/dataset/BDD100k_10k/images/test', 
+    parser.add_argument('--source', type=str, default='./inference/images', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
