@@ -357,17 +357,17 @@ def make_divisible(x, divisor):
     return math.ceil(x / divisor) * divisor
 
 def value_to_float(x):
-    if type(x) == float or type(x) == int:
+    if type(x) == float or type(x) == int or not x:
         return x
-    if 'K' in x:
+    if 'K' == x[-1]:
         if len(x) > 1:
             return float(x.replace('K', '')) * 1000
         return 1000.0
-    if 'M' in x:
+    if 'M' == x[-1]:
         if len(x) > 1:
             return float(x.replace('M', '')) * 1000000
         return 1000000.0
-    if 'G' in x:
+    if 'G' == x[-1]:
         return float(x.replace('G', '')) * 1000000000
     return x
 
@@ -394,7 +394,6 @@ def OpCounter(img, model, results_file):
 
         data = {}
         for i, index in enumerate(parameter_data[0].split('|')[1:-1], start=1):
-
             data[index.strip(' ')] = [value_to_float(line.split('|')[i].strip(' ')) for line in parameter_data[2:]]
 
         myvar = pd.DataFrame(data)

@@ -338,7 +338,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             Lane line Segment:       Acc({ll_segment_result[0]:.3f})    mIOU({ll_segment_result[2]:.3f})\n\
             Detect:    P({detect_result[0]:.3f})      R({detect_result[1]:.3f})    mAP@0.5({detect_result[2]:.3f})    mAP@0.5:0.95({detect_result[3]:.3f})\n\
             Time: inference({t[0]:.4f}s/frame)  nms({t[1]:.4f}s/frame)'
-    print(msg)
     if(logger):
         logger.info(msg)
     write_log(results_file, msg)
