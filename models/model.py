@@ -146,7 +146,7 @@ class UNext(nn.Module):
 
         _c = torch.cat([_c4, _c3, _c2, _c1], dim=1)
         _c = self.linear_c(_c).permute(0,2,1).reshape(n, -1, _c.shape[2], _c.shape[3])
-        _c = resize(_c, size=c4.size()[2:],mode='bilinear',align_corners=False)
+        # _c = resize(_c, size=c4.size()[2:],mode='bilinear',align_corners=False)
 # ======================================================================
         # decoder
         c5 = torch.cat([self.linear_conv1(_c),self.de4_conv(c4)], dim=1)
