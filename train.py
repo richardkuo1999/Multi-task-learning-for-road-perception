@@ -74,6 +74,13 @@ def main(args, hyp, device, writer):
     Lane_color = data_color(Lane_class)
     DriveArea_color = data_color(DriveArea_class)
     target_name = (Det_class, DriveArea_class, Lane_class)
+
+    # decide merge class
+    if 'merge' in data_dict.keys():
+        hyp.update({'merge': data_dict['merge']})
+        for key,values in data_dict['merge'].items():
+            logger.info(f"{colorstr('Merge: ')}{key}:{values}")
+
     # Save run settings(hyp, args)
     with open(save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
@@ -310,7 +317,7 @@ def parse_args():
                             # yolop_backbone
     parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/multi.yaml', 
+    parser.add_argument('--data', type=str, default='data/merge.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')

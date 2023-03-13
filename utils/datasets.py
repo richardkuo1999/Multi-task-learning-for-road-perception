@@ -74,6 +74,11 @@ class AutoDriveDataset(Dataset):
         self.transform = transform
         self.inputsize = args.img_size
 
+        self.merge_flag = False
+        if 'merge' in data_dict.keys():
+            self.merge = data_dict['merge']
+            self.merge_flag = True
+
         self.Tensor = transforms.ToTensor()
 
         # Data Root
@@ -161,7 +166,7 @@ class AutoDriveDataset(Dataset):
         # colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(100)]    
         # for cls,x1,y1,x2,y2 in labels:
         #     xyxy = (x1,y1,x2,y2)
-        #     plot_one_box(xyxy, img, color=colors[int(cls)], label=str(int(cls)), line_thickness=1)
+        #     plot_one_box(xyxy, img, color=colors[int(cls)], label=str(self.data_dict['Det_names'][int(cls)]), line_thickness=1)
         # cv2.imwrite("./batch_1_1_det_gt.png",img)
 
         if self.is_train:
@@ -296,9 +301,6 @@ class BddDataset(AutoDriveDataset):
 
             for idx, obj in enumerate(obj_data):
                 category = obj['category']
-                # if category == "traffic light":
-                #     color = obj['attributes']['trafficLightColor']
-                #     category = "tl_" + color
                 if category in self.data_dict['Det_names']:
                     x1 = float(obj['box2d']['x1'])
                     y1 = float(obj['box2d']['y1'])
@@ -330,6 +332,11 @@ class BddDataset(AutoDriveDataset):
         remain = []
         for obj in data:
             if 'box2d' in obj.keys():  # obj.has_key('box2d'):
+
+                if self.merge_flag and (obj['category'] not in self.data_dict['Det_names']) :
+                    for key, value in self.merge.items():
+                        obj['category'] = obj['category'] if obj['category'] not in value else key
+
                 if obj['category'] in self.data_dict['Det_names']:
                     remain.append(obj)
         return remain
