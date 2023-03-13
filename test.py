@@ -125,65 +125,56 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             if batch_i == 0:
                 for i in range(batch_size):
                     img_test = cv2.imread(paths[i])
+                    img_GT = img_test.copy()
+
                     da_seg_mask = da_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
                     da_seg_mask = torch.nn.functional.interpolate(da_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, da_seg_mask = torch.max(da_seg_mask, 1)
+                    da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
+                    img_test = show_seg_result(img_test, da_seg_mask, i,epoch, save_dir, palette=DriveArea_color)
+
+                    ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
+                    ll_seg_mask = torch.nn.functional.interpolate(ll_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
+                    _, ll_seg_mask = torch.max(ll_seg_mask, 1)
+                    ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
+                    img_test = show_seg_result(img_test, ll_seg_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True)
+
+                    det = output[i].clone()
+                    if len(det):
+                        det[:,:4] = scale_coords(img[i].shape[1:],det[:,:4],img_test.shape).round()
+                    for *xyxy,conf,cls in reversed(det):
+                        #print(cls)
+                        label_det_pred = f'{Det_name[int(cls)]} {conf:.2f}'
+                        plot_one_box(xyxy, img_test , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
+                    cv2.imwrite(save_dir+"/batch_{}_{}_pred.png".format(epoch,i),img_test)
+
+
+
 
                     da_gt_mask = target[1][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
                     da_gt_mask = torch.nn.functional.interpolate(da_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, da_gt_mask = torch.max(da_gt_mask, 1)
-
-                    da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
                     da_gt_mask = da_gt_mask.int().squeeze().cpu().numpy()
-                    # seg_mask = seg_mask > 0.5
-                    # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
-                    img_test1 = img_test.copy()
-                    _ = show_seg_result(img_test, da_seg_mask, i,epoch, save_dir, palette=DriveArea_color)
-                    _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, palette=DriveArea_color
-                                                                                            , is_gt=True)
-
-                    img_ll = cv2.imread(paths[i])
-                    ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                    ll_seg_mask = torch.nn.functional.interpolate(ll_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
-                    _, ll_seg_mask = torch.max(ll_seg_mask, 1)
+                    img_GT = show_seg_result(img_GT, da_gt_mask, i, epoch, save_dir, palette=DriveArea_color, is_gt=True)
 
                     ll_gt_mask = target[2][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
                     ll_gt_mask = torch.nn.functional.interpolate(ll_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, ll_gt_mask = torch.max(ll_gt_mask, 1)
-
-                    ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
                     ll_gt_mask = ll_gt_mask.int().squeeze().cpu().numpy()
-                    # seg_mask = seg_mask > 0.5
-                    # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
-                    img_ll1 = img_ll.copy()
-                    _ = show_seg_result(img_ll, ll_seg_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True)
-                    _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True, 
+                    img_GT = show_seg_result(img_GT, ll_gt_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True, 
                                                                                                     is_gt=True)
-
-                    img_det = cv2.imread(paths[i])
-                    img_gt = img_det.copy()
-                    det = output[i].clone()
-                    if len(det):
-                        det[:,:4] = scale_coords(img[i].shape[1:],det[:,:4],img_det.shape).round()
-                    for *xyxy,conf,cls in reversed(det):
-                        #print(cls)
-                        label_det_pred = f'{Det_name[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
-                    cv2.imwrite(save_dir+"/batch_{}_{}_det_pred.png".format(epoch,i),img_det)
-
                     labels = target[0][target[0][:, 0] == i, 1:]
                     # print(labels)
                     labels[:,1:5]=xywh2xyxy(labels[:,1:5])
                     if len(labels):
-                        labels[:,1:5]=scale_coords(img[i].shape[1:],labels[:,1:5],img_gt.shape).round()
+                        labels[:,1:5]=scale_coords(img[i].shape[1:],labels[:,1:5],img_GT.shape).round()
                     for cls,x1,y1,x2,y2 in labels:
                         #print(Det_name)
                         #print(cls)
                         label_det_gt = f'{Det_name[int(cls)]}'
                         xyxy = (x1,y1,x2,y2)
-                        plot_one_box(xyxy, img_gt , label=label_det_gt, color=colors[int(cls)], line_thickness=2)
-                    cv2.imwrite(save_dir+"/batch_{}_{}_det_gt.png".format(epoch,i),img_gt)
-
+                        plot_one_box(xyxy, img_GT , label=label_det_gt, color=colors[int(cls)], line_thickness=2)
+                    cv2.imwrite(save_dir+"/batch_{}_{}_gt.png".format(epoch,i),img_GT)
 
 
         #driving area segment evaluation
@@ -366,9 +357,9 @@ def parse_args():
                                                     help='IOU threshold for NMS')
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='weights/epoch-95.pth', 
+    parser.add_argument('--weights', type=str, default='weights/last.pth', 
                                                         help='model.pth path(s)')
-    parser.add_argument('--test_batch_size', type=int, default=20, 
+    parser.add_argument('--test_batch_size', type=int, default=5, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
