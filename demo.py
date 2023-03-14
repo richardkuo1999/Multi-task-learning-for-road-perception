@@ -149,11 +149,8 @@ def detect(args, device, expName):
                     label_det_pred = f'{names[int(cls)]} {conf:.2f}'
                     plot_one_box(xyxy, img_det , label=label_det_pred, 
                                             color=colors[int(cls)], line_thickness=2)
-            #FIXME fps Error
-            try:
-                fps= round(1/(inf_time.val+nms_time.val))
-            except:
-                fps =404
+
+            fps= round(1/(inf_time.val+nms_time.val))
             print(f'FPS:{fps}')
             img_det = addText2image(img_det, expName,fps)
             if dataset.mode == 'image':
