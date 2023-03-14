@@ -55,7 +55,7 @@ class UNext(nn.Module):
                             ('conv', Conv(1024,1024,1,1)),
                             ]))  
                             
-        # FIXME img_size embed_dims
+        # TODO img_size embed_dims
         # self.patch_embed1 = OverlapPatchEmbed(img_size=640 // 16, patch_size=3, stride=2, in_chans=1024,
         #                                       embed_dim=1024)
         # self.patch_embed2 = OverlapPatchEmbed(img_size=640 // 8, patch_size=3, stride=2, in_chans=512,
@@ -63,8 +63,6 @@ class UNext(nn.Module):
         # self.patch_embed3 = OverlapPatchEmbed(img_size=640 // 4, patch_size=3, stride=2, in_chans=256,
         #                                       embed_dim=1024)
         
-        # self.linear_c4 = MLP(input_dim=c4_in_channels, embed_dim=embedding_dim)
-        # FIXME embedding_dim = 1024
         self.linear_c4 = MLP(input_dim=1024, embed_dim=1024)
         self.linear_c3 = MLP(input_dim=512, embed_dim=1024)
         self.linear_c2 = MLP(input_dim=256, embed_dim=1024)

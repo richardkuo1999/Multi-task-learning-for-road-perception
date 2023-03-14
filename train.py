@@ -255,7 +255,7 @@ def main(args, hyp, device, writer):
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
                 epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
                                         target_name, Lane_color, DriveArea_color,logger, device)
-            # TODO best weight choose
+            # FIXME best weight choose
             fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
             fi += (sum(da_segment_result)+sum(ll_segment_result))
             if(fi > best_fitness):
@@ -300,9 +300,9 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='UNext', 
+    parser.add_argument('--cfg', type=str, default='Newmodel', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/merge.yaml', 
+    parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/train',
                             help='log directory')
