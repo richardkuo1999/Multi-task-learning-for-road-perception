@@ -121,7 +121,7 @@ def detect(args, device, expName):
         pad_w, pad_h = shapes[1][1]
         pad_w = int(pad_w)
         pad_h = int(pad_h)
-        ratio = shapes[1][0][1]
+        ratio = min(shapes[1][0])
 
         da_predict = da_seg_out[:, :, pad_h:(height-pad_h),pad_w:(width-pad_w)]
         da_seg_mask = torch.nn.functional.interpolate(da_predict, 

@@ -97,11 +97,8 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
         with torch.no_grad():
             pad_w, pad_h = shapes[0][1][1]
-            pad_w = int(pad_w)
-            pad_h = int(pad_h)
-            # ratio = shapes[0][1][0][0]
-            # FIXME ratio not alway 0.5
-            ratio = 0.5
+            pad_w, pad_h = int(pad_w), int(pad_h)
+            ratio = min(shapes[0][1][0])
 
             t = time_synchronized()
             det_out, da_seg_out, ll_seg_out= model(img)
