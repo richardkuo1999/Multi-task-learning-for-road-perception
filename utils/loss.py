@@ -80,8 +80,8 @@ class MultiHeadLoss(nn.Module):
         _, _, daseg, llseg = self.losses
 
         lbox, lobj, lcls, no = self.det_loss(predictions[0], targets[0], model, device)
-        lseg_da = self.seg_loss(predictions[1], targets[1], daseg, self.nc[1])
-        lseg_ll = self.seg_loss(predictions[2], targets[2], llseg, self.nc[2])
+        lseg_da = daseg(predictions[1], targets[1])
+        lseg_ll = llseg(predictions[2], targets[2])
         
         s = 3 / no  # output count scaling
 
@@ -140,14 +140,7 @@ class MultiHeadLoss(nn.Module):
                     lcls += BCEcls(ps[:, 5:], t)  # BCE
             lobj += BCEobj(pi[..., 4], tobj) * balance[i]  # obj loss
         return lbox, lobj, lcls, no
-    # TODO inntergrading
-    def seg_loss(self, prediction, target, seg, nc):
-        # if(nc == 2):
-        #     seg = seg(prediction.view(-1), target.view(-1))
-        # else:
-        #     seg = seg(prediction, target)
-        seg = seg(prediction, target)
-        return seg
+
 
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441

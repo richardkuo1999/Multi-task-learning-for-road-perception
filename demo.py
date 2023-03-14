@@ -11,7 +11,7 @@ import torch
 import torchvision.transforms as transforms
 
 
-# from models.YOLOP import Model
+from models.model import build_model
 from utils.datasets import LoadImages
 from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
@@ -35,14 +35,6 @@ transform=transforms.Compose([
 
 def detect(args, device, expName):
 
-    # TODO dirty code
-    is_UNext = False
-    if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
-        from models.YOLOP import Model
-    else:
-        from models.UNext import Model
-        is_UNext = True
-
     save_dir = args.save_dir
 
     save_dir.mkdir(parents=True, exist_ok=True)  # make dir
@@ -62,13 +54,13 @@ def detect(args, device, expName):
     DriveArea_color = data_color(DriveArea_class)
 
     # Load model
-    model = Model(args.cfg, nc).to(device)
+    anchors = None
+    model = build_model(args.cfg, nc, anchors).to(device)
     checkpoint = torch.load(args.weights, map_location= device)
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
     if half:
         model.half()  # to FP16
-
 
     # calculate macs, params, flops, parameter count
     img = np.random.rand(384, 640, 3)
@@ -129,7 +121,7 @@ def detect(args, device, expName):
         pad_w, pad_h = shapes[1][1]
         pad_w = int(pad_w)
         pad_h = int(pad_h)
-        ratio = shapes[1][0][1]
+        ratio = min(shapes[1][0])
 
         da_predict = da_seg_out[:, :, pad_h:(height-pad_h),pad_w:(width-pad_w)]
         da_seg_mask = torch.nn.functional.interpolate(da_predict, 
@@ -157,11 +149,8 @@ def detect(args, device, expName):
                     label_det_pred = f'{names[int(cls)]} {conf:.2f}'
                     plot_one_box(xyxy, img_det , label=label_det_pred, 
                                             color=colors[int(cls)], line_thickness=2)
-            #FIXME fps Error
-            try:
-                fps= round(1/(inf_time.val+nms_time.val))
-            except:
-                fps =404
+
+            fps= round(1/(inf_time.val+nms_time.val))
             print(f'FPS:{fps}')
             img_det = addText2image(img_det, expName,fps)
             if dataset.mode == 'image':
@@ -198,13 +187,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='./weights/epoch-95.pth', 
+    parser.add_argument('--weights', type=str, default='./weights/last.pth', 
                                                     help='model.pth path(s)')
-    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
+    parser.add_argument('--cfg', type=str, default='Newmodel', 
                                                     help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
-    parser.add_argument('--source', type=str, default='F:/dataset/BDD100k_10k/images/test', 
+    parser.add_argument('--source', type=str, default='./inference/images', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')

@@ -56,17 +56,6 @@ def initialize_weights(model):
         # elif t in [nn.LeakyReLU, nn.ReLU, nn.ReLU6]:
             m.inplace = True
 
-def get_optimizer(hyp, model):
-    if hyp['optimizer'] == 'sgd':
-        optimizer = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-                                momentum=hyp['momentum'], weight_decay=hyp['wd'],
-                                nesterov=hyp['nesterov'])
-    elif hyp['optimizer'] == 'adam':
-        optimizer = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-                                                betas=(hyp['momentum'], 0.999))   
-    return optimizer
 
 class Detect(nn.Module):
     stride = None  # strides computed during build

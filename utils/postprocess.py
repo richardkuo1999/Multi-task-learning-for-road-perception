@@ -19,11 +19,8 @@ def build_targets(hyp, predictions, targets, model):
     t [index, class, x, y, w, h, head_index]
     '''
     # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
-    # TODO dirty code
-    if hyp['is_UNext']:
-        det = model.model.HeadOut  # Detect() module
-    else:
-        det = model.model[model.HeadOut[0]]  # Detect() module
+
+    det = model.model.HeadOut  # Detect() module
     na, nt = det.na, targets.shape[0]  # number of anchors, targets
     tcls, tbox, indices, anch = [], [], [], []
     gain = torch.ones(7, device=targets.device).long()  # normalized to gridspace gain

@@ -23,9 +23,7 @@ from test import test
 from utils.autoanchor import check_anchors
 from utils.torch_utils import select_device
 from utils.datasets import create_dataloader
-# from models.YOLOP import Model, get_optimizer
-# from models.UNext import Model, get_optimizer
-from models.model import Model, get_optimizer
+from models.model import build_model, get_optimizer
 from utils.general import colorstr, set_logging, increment_path, write_log,\
                          val_tensorboard, train_tensorboard, data_color, AverageMeter
 
@@ -37,15 +35,6 @@ logger = logging.getLogger(__name__)
 
 
 def main(args, hyp, device, writer):
-    # TODO dirty code
-    is_UNext = False
-    if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
-        from models.YOLOP import Model
-    else:
-        # from models.UNext import Model
-        from models.model import Model
-        is_UNext = True
-    hyp['is_UNext'] = is_UNext
 
     begin_epoch, global_steps, best_fitness, fi = 1, 0, 0.0, 1.0
     
@@ -74,6 +63,13 @@ def main(args, hyp, device, writer):
     Lane_color = data_color(Lane_class)
     DriveArea_color = data_color(DriveArea_class)
     target_name = (Det_class, DriveArea_class, Lane_class)
+
+    # decide merge class
+    if 'merge' in data_dict.keys():
+        hyp.update({'merge': data_dict['merge']})
+        for key,values in data_dict['merge'].items():
+            logger.info(f"{colorstr('Merge: ')}{key}:{values}")
+
     # Save run settings(hyp, args)
     with open(save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
@@ -86,7 +82,7 @@ def main(args, hyp, device, writer):
 
     #TODO anchor method
     anchors = None
-    model = Model(args.cfg, hyp['nc'], anchors).to(device)
+    model = build_model(args.cfg, hyp['nc'], anchors).to(device)
 
     # loss function 
     criterion = MultiHeadLoss(hyp, device)
@@ -149,11 +145,7 @@ def main(args, hyp, device, writer):
                                                     imgsz=min(args.img_size))
     else:
         logger.info("anchors loaded successfully")
-        # TODO dirty code
-        if is_UNext:
-            det = model.model.HeadOut
-        else:
-            det = model.model[model.HeadOut[0]]
+        det = model.model.HeadOut
         logger.info(str(det.anchors))
 
 
@@ -263,7 +255,7 @@ def main(args, hyp, device, writer):
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
                 epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
                                         target_name, Lane_color, DriveArea_color,logger, device)
-            # TODO best weight choose
+            # FIXME best weight choose
             fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
             fi += (sum(da_segment_result)+sum(ll_segment_result))
             if(fi > best_fitness):
@@ -308,7 +300,7 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
+    parser.add_argument('--cfg', type=str, default='Newmodel', 
                                             help='model yaml path')
     parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')

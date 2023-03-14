@@ -12,9 +12,9 @@ from pathlib import Path
 import torch
 
 
-
+from models.model import build_model
 from utils.loss import MultiHeadLoss
-# from models.YOLOP import Model
+from models.model import build_model
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device, time_synchronized
 from utils.plot import plot_one_box,show_seg_result,plot_img_and_mask,plot_images
@@ -97,11 +97,8 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
 
         with torch.no_grad():
             pad_w, pad_h = shapes[0][1][1]
-            pad_w = int(pad_w)
-            pad_h = int(pad_h)
-            # ratio = shapes[0][1][0][0]
-            # FIXME ratio not alway 0.5
-            ratio = 0.5
+            pad_w, pad_h = int(pad_w), int(pad_h)
+            ratio = min(shapes[0][1][0])
 
             t = time_synchronized()
             det_out, da_seg_out, ll_seg_out= model(img)
@@ -125,65 +122,56 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             if batch_i == 0:
                 for i in range(batch_size):
                     img_test = cv2.imread(paths[i])
+                    img_GT = img_test.copy()
+
                     da_seg_mask = da_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
                     da_seg_mask = torch.nn.functional.interpolate(da_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, da_seg_mask = torch.max(da_seg_mask, 1)
+                    da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
+                    img_test = show_seg_result(img_test, da_seg_mask, i,epoch, save_dir, palette=DriveArea_color)
+
+                    ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
+                    ll_seg_mask = torch.nn.functional.interpolate(ll_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
+                    _, ll_seg_mask = torch.max(ll_seg_mask, 1)
+                    ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
+                    img_test = show_seg_result(img_test, ll_seg_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True)
+
+                    det = output[i].clone()
+                    if len(det):
+                        det[:,:4] = scale_coords(img[i].shape[1:],det[:,:4],img_test.shape).round()
+                    for *xyxy,conf,cls in reversed(det):
+                        #print(cls)
+                        label_det_pred = f'{Det_name[int(cls)]} {conf:.2f}'
+                        plot_one_box(xyxy, img_test , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
+                    cv2.imwrite(save_dir+"/batch_{}_{}_pred.png".format(epoch,i),img_test)
+
+
+
 
                     da_gt_mask = target[1][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
                     da_gt_mask = torch.nn.functional.interpolate(da_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, da_gt_mask = torch.max(da_gt_mask, 1)
-
-                    da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
                     da_gt_mask = da_gt_mask.int().squeeze().cpu().numpy()
-                    # seg_mask = seg_mask > 0.5
-                    # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
-                    img_test1 = img_test.copy()
-                    _ = show_seg_result(img_test, da_seg_mask, i,epoch, save_dir, palette=DriveArea_color)
-                    _ = show_seg_result(img_test1, da_gt_mask, i, epoch, save_dir, palette=DriveArea_color
-                                                                                            , is_gt=True)
-
-                    img_ll = cv2.imread(paths[i])
-                    ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
-                    ll_seg_mask = torch.nn.functional.interpolate(ll_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
-                    _, ll_seg_mask = torch.max(ll_seg_mask, 1)
+                    img_GT = show_seg_result(img_GT, da_gt_mask, i, epoch, save_dir, palette=DriveArea_color, is_gt=True)
 
                     ll_gt_mask = target[2][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
                     ll_gt_mask = torch.nn.functional.interpolate(ll_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, ll_gt_mask = torch.max(ll_gt_mask, 1)
-
-                    ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
                     ll_gt_mask = ll_gt_mask.int().squeeze().cpu().numpy()
-                    # seg_mask = seg_mask > 0.5
-                    # plot_img_and_mask(img_test, seg_mask, i,epoch,save_dir)
-                    img_ll1 = img_ll.copy()
-                    _ = show_seg_result(img_ll, ll_seg_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True)
-                    _ = show_seg_result(img_ll1, ll_gt_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True, 
+                    img_GT = show_seg_result(img_GT, ll_gt_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True, 
                                                                                                     is_gt=True)
-
-                    img_det = cv2.imread(paths[i])
-                    img_gt = img_det.copy()
-                    det = output[i].clone()
-                    if len(det):
-                        det[:,:4] = scale_coords(img[i].shape[1:],det[:,:4],img_det.shape).round()
-                    for *xyxy,conf,cls in reversed(det):
-                        #print(cls)
-                        label_det_pred = f'{Det_name[int(cls)]} {conf:.2f}'
-                        plot_one_box(xyxy, img_det , label=label_det_pred, color=colors[int(cls)], line_thickness=2)
-                    cv2.imwrite(save_dir+"/batch_{}_{}_det_pred.png".format(epoch,i),img_det)
-
                     labels = target[0][target[0][:, 0] == i, 1:]
                     # print(labels)
                     labels[:,1:5]=xywh2xyxy(labels[:,1:5])
                     if len(labels):
-                        labels[:,1:5]=scale_coords(img[i].shape[1:],labels[:,1:5],img_gt.shape).round()
+                        labels[:,1:5]=scale_coords(img[i].shape[1:],labels[:,1:5],img_GT.shape).round()
                     for cls,x1,y1,x2,y2 in labels:
                         #print(Det_name)
                         #print(cls)
                         label_det_gt = f'{Det_name[int(cls)]}'
                         xyxy = (x1,y1,x2,y2)
-                        plot_one_box(xyxy, img_gt , label=label_det_gt, color=colors[int(cls)], line_thickness=2)
-                    cv2.imwrite(save_dir+"/batch_{}_{}_det_gt.png".format(epoch,i),img_gt)
-
+                        plot_one_box(xyxy, img_GT , label=label_det_gt, color=colors[int(cls)], line_thickness=2)
+                    cv2.imwrite(save_dir+"/batch_{}_{}_gt.png".format(epoch,i),img_GT)
 
 
         #driving area segment evaluation
@@ -338,7 +326,6 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
             Lane line Segment:       Acc({ll_segment_result[0]:.3f})    mIOU({ll_segment_result[2]:.3f})\n\
             Detect:    P({detect_result[0]:.3f})      R({detect_result[1]:.3f})    mAP@0.5({detect_result[2]:.3f})    mAP@0.5:0.95({detect_result[3]:.3f})\n\
             Time: inference({t[0]:.4f}s/frame)  nms({t[1]:.4f}s/frame)'
-    print(msg)
     if(logger):
         logger.info(msg)
     write_log(results_file, msg)
@@ -353,7 +340,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Test Multitask network')
     parser.add_argument('--hyp', type=str, default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
-    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
+    parser.add_argument('--cfg', type=str, default='Newmodel', 
                                                 help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
@@ -367,9 +354,9 @@ def parse_args():
                                                     help='IOU threshold for NMS')
     parser.add_argument('--device', default='',
                             help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--weights', type=str, default='weights/epoch-95.pth', 
+    parser.add_argument('--weights', type=str, default='weights/last.pth', 
                                                         help='model.pth path(s)')
-    parser.add_argument('--test_batch_size', type=int, default=20, 
+    parser.add_argument('--test_batch_size', type=int, default=5, 
                             help='total batch size for all GPUs')
     parser.add_argument('--workers', type=int, default=0, 
                             help='maximum number of dataloader workers')
@@ -392,16 +379,6 @@ if __name__ == '__main__':
     # Hyperparameter
     with open(args.hyp) as f:
         hyp = yaml.load(f, Loader=yaml.SafeLoader)  # load hyps
-
-    # TODO dirty code
-    is_UNext = False
-    if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
-        from models.YOLOP import Model
-    else:
-        # from models.UNext import Model
-        from models.model import Model
-        is_UNext = True
-    hyp['is_UNext'] = is_UNext
 
     # Get class and class number
     with open(args.data) as f:
@@ -428,7 +405,7 @@ if __name__ == '__main__':
     #TODO anchor method
     print("begin to build up model...")
     anchors = None
-    model = Model(args.cfg, hyp['nc'], anchors).to(device)
+    model = build_model(args.cfg, hyp['nc'], anchors).to(device)
 
     # loss function 
     criterion = MultiHeadLoss(hyp, device)
