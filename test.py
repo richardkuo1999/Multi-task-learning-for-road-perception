@@ -12,9 +12,9 @@ from pathlib import Path
 import torch
 
 
-
+from models.model import build_model
 from utils.loss import MultiHeadLoss
-# from models.YOLOP import Model
+from models.model import build_model
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device, time_synchronized
 from utils.plot import plot_one_box,show_seg_result,plot_img_and_mask,plot_images
@@ -343,7 +343,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Test Multitask network')
     parser.add_argument('--hyp', type=str, default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
-    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
+    parser.add_argument('--cfg', type=str, default='Newmodel', 
                                                 help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
@@ -383,16 +383,6 @@ if __name__ == '__main__':
     with open(args.hyp) as f:
         hyp = yaml.load(f, Loader=yaml.SafeLoader)  # load hyps
 
-    # TODO dirty code
-    is_UNext = False
-    if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
-        from models.YOLOP import Model
-    else:
-        # from models.UNext import Model
-        from models.model import Model
-        is_UNext = True
-    hyp['is_UNext'] = is_UNext
-
     # Get class and class number
     with open(args.data) as f:
         data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
@@ -418,7 +408,7 @@ if __name__ == '__main__':
     #TODO anchor method
     print("begin to build up model...")
     anchors = None
-    model = Model(args.cfg, hyp['nc'], anchors).to(device)
+    model = build_model(args.cfg, hyp['nc'], anchors).to(device)
 
     # loss function 
     criterion = MultiHeadLoss(hyp, device)

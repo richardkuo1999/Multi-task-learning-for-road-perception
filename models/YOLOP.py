@@ -37,7 +37,7 @@ class Model(nn.Module):
 
         # Define model
         ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
-        self.HeadOut = self.yaml['HeadOut']
+        self.HeadOut_idx = self.yaml['HeadOut']
         if nc:
             logger.info(f"Overriding model.yaml Det_nc={self.yaml['Det_nc']} with nc={nc[0]}")
             logger.info(f"Overriding model.yaml Lane_nc={self.yaml['Lane_nc']} with nc={nc[1]}")
@@ -57,10 +57,11 @@ class Model(nn.Module):
 
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
         self.names = [str(i) for i in range(self.Det_nc)]  # default names
+        self.model.HeadOut = self.model[self.HeadOut_idx[0]]
         # print([x.shape for x in self.forward(torch.zeros(1, ch, 64, 64))])
 
         # Build strides, anchors
-        m = self.model[self.HeadOut[0]]  # Detect()
+        m = self.model.HeadOut  # Detect()
         if isinstance(m, Detect) or isinstance(m, IDetect):
             s = 128  # 2x min stride
             # for x in self.forward(torch.zeros(1, 3, s, s)):
@@ -93,11 +94,11 @@ class Model(nn.Module):
                 x = cache[block.f] if isinstance(block.f, int) else [x if j == -1 else cache[j] for j in block.f]       #calculate concat detect
             x = block(x)
 
-            if i in self.HeadOut[1:]:     #save driving area segment result
+            if i in self.HeadOut_idx[1:]:     #save driving area segment result
                 m=nn.Sigmoid()
                 out.append(m(x))
                 
-            if i == self.HeadOut[0]:
+            if i == self.HeadOut_idx[0]:
                 out = [x]
                 
             cache.append(x if block.i in self.save else None)
@@ -108,7 +109,7 @@ class Model(nn.Module):
         # https://arxiv.org/abs/1708.02002 section 3.3
         # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
         # m = self.model[-1]  # Detect() module
-        m = self.model[self.HeadOut[0]]  # Detect() module
+        m = self.model[self.HeadOut_idx[0]]  # Detect() module
         for mi, s in zip(m.m, m.stride):  # from
             b = mi.bias.view(m.na, -1)  # conv.bias(255) to (3,85)
             b.data[:, 4] += math.log(8 / (640 / s) ** 2)  # obj (8 objects per 640 image)
@@ -172,19 +173,6 @@ def parse_model(d, ch):
             ch = []
         ch.append(c2)
     return nn.Sequential(*layers), sorted(save)
-
-
-def get_optimizer(hyp, model):
-    if hyp['optimizer'] == 'sgd':
-        optimizer = torch.optim.SGD(
-            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-                                momentum=hyp['momentum'], weight_decay=hyp['wd'],
-                                nesterov=hyp['nesterov'])
-    elif hyp['optimizer'] == 'adam':
-        optimizer = torch.optim.Adam(
-            filter(lambda p: p.requires_grad, model.parameters()),lr=hyp['lr0'],
-                                                betas=(hyp['momentum'], 0.999))   
-    return optimizer
 
 
 if __name__ == "__main__":

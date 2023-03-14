@@ -11,7 +11,7 @@ import torch
 import torchvision.transforms as transforms
 
 
-# from models.YOLOP import Model
+from models.model import build_model
 from utils.datasets import LoadImages
 from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
@@ -35,15 +35,6 @@ transform=transforms.Compose([
 
 def detect(args, device, expName):
 
-    # TODO dirty code
-    is_UNext = False
-    if args.cfg in ['cfg/YOLOP_v7b3.yaml','cfg/YOLOP_v7bT2_ReConv.yaml','cfg/yolop.yaml']:
-        from models.YOLOP import Model
-    else:
-        # from models.UNext import Model
-        from models.model import Model
-        is_UNext = True
-
     save_dir = args.save_dir
 
     save_dir.mkdir(parents=True, exist_ok=True)  # make dir
@@ -63,7 +54,8 @@ def detect(args, device, expName):
     DriveArea_color = data_color(DriveArea_class)
 
     # Load model
-    model = Model(args.cfg, nc).to(device)
+    anchors = None
+    model = build_model(args.cfg, nc, anchors).to(device)
     checkpoint = torch.load(args.weights, map_location= device)
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
@@ -200,9 +192,9 @@ if __name__ == '__main__':
                             help='log directory')
     parser.add_argument('--weights', type=str, default='./weights/last.pth', 
                                                     help='model.pth path(s)')
-    parser.add_argument('--cfg', type=str, default='cfg/UNext.yaml', 
+    parser.add_argument('--cfg', type=str, default='Newmodel', 
                                                     help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--source', type=str, default='./inference/images', 
                                                     help='source')  
