@@ -255,9 +255,10 @@ def main(args, hyp, device, writer):
             da_segment_result, ll_segment_result, detect_result, total_loss, maps, t= test(
                 epoch, args, hyp, valid_loader, model, criterion,save_dir,results_file,
                                         target_name, Lane_color, DriveArea_color,logger, device)
-            # FIXME best weight choose
+            
             fi = fitness(np.array(detect_result).reshape(1, -1))  #目标检测评价指标
-            fi += (sum(da_segment_result)+sum(ll_segment_result))
+            fi += (da_segment_result[0]+da_segment_result[2]+
+                   ll_segment_result[0]+ll_segment_result[2])
             if(fi > best_fitness):
                 best_fitness = fi
 
