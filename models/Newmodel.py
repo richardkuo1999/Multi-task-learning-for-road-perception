@@ -55,7 +55,7 @@ class UNext(nn.Module):
                             ('conv', Conv(1024,1024,1,1)),
                             ]))  
                             
-        # TODO img_size embed_dims
+        # img_size embed_dims
         # self.patch_embed1 = OverlapPatchEmbed(img_size=640 // 16, patch_size=3, stride=2, in_chans=1024,
         #                                       embed_dim=1024)
         # self.patch_embed2 = OverlapPatchEmbed(img_size=640 // 8, patch_size=3, stride=2, in_chans=512,

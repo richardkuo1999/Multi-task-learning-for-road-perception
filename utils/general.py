@@ -99,10 +99,8 @@ def val_tensorboard(writer, global_steps, da_segment_result, ll_segment_result, 
                      total_loss, maps, t):
     writer.add_scalar('val_loss', total_loss, global_steps)
     writer.add_scalar('Driving_area_Segment_Acc', da_segment_result[0], global_steps)
-    writer.add_scalar('Driving_area_Segment_IOU', da_segment_result[1], global_steps)
     writer.add_scalar('Driving_area_Segment_mIOU', da_segment_result[2], global_steps)
     writer.add_scalar('Lane_line_Segment_Acc', ll_segment_result[0], global_steps)
-    writer.add_scalar('Lane_line_Segment_IOU', ll_segment_result[1], global_steps)
     writer.add_scalar('Lane_line_Segment_mIOU', ll_segment_result[2], global_steps)
     writer.add_scalar('Detect_P', detect_result[0], global_steps)
     writer.add_scalar('Detect_R', detect_result[1], global_steps)
