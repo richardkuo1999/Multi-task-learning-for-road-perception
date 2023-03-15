@@ -405,13 +405,13 @@ class LoadImages:  # for inference
             # Read image
             self.count += 1
             img0 = cv2.imread(path, cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION)  # BGR
-            #img0 = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
+            img = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
             assert img0 is not None, 'Image Not Found ' + path
             print(f'image {self.count}/{self.nf} {path}: ')
             h0, w0 = img0.shape[:2]
 
         # Padded resize
-        img, ratio, pad = letterbox_for_img(img0, new_shape=self.img_size, auto=True)
+        img, ratio, pad = letterbox_for_img(img, new_shape=self.img_size, auto=True)
         h, w = img.shape[:2]
         shapes = (h0, w0), ((h / h0, w / w0), pad)
 
@@ -420,6 +420,8 @@ class LoadImages:  # for inference
         img = np.ascontiguousarray(img)
 
 
+        # cv2.imwrite('.img.jpg', img)  # save letterbox image
+        # cv2.imwrite('.img0.jpg', img0)  # save letterbox image
         # cv2.imwrite(path + '.letterbox.jpg', 255 * img.transpose((1, 2, 0))[:, :, ::-1])  # save letterbox image
         return path, img, img0, self.cap, shapes
 
