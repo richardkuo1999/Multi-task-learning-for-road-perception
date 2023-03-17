@@ -226,7 +226,11 @@ def main(args, hyp, device, writer):
             # measure elapsed time
             batch_time.update(time.time() - start)
             if i % 10 == 0:
+                lr = optimizer.state_dict()['param_groups'][0]['lr']
                 msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}] '+\
+                        f'lr: [{lr}] '
+                
+                msg +=  '\n                   '+\
                         f'Time {batch_time.val:.3f}s ({batch_time.avg:.3f}s)  '+\
                         f'peed {input.size(0)/batch_time.val:.1f} samples/s  '+\
                         f'Data {data_time.val:.3f}s ({data_time.avg:.3f}s)  '+\
