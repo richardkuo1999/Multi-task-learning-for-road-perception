@@ -1,6 +1,6 @@
 import torch
 from pathlib import Path
-
+from fvcore.nn import parameter_count_table
 
 def build_model(cfg, nc, anchors=None, ch=3,):
     if len(cfg.split('.')) > 1:
@@ -16,8 +16,9 @@ def build_model(cfg, nc, anchors=None, ch=3,):
           from models.Newmodel import Model
         else:
             raise Exception(f'mmodel {cfg} not exist')
-           
-    return Model(cfg, nc, anchors)
+    model = Model(cfg, nc, anchors)
+    print(parameter_count_table(model))
+    return model
 
 def get_optimizer(hyp, model):
     if hyp['optimizer'] == 'sgd':
