@@ -1,6 +1,5 @@
 import torch
 from pathlib import Path
-from fvcore.nn import parameter_count_table
 
 def build_model(cfg, nc, anchors=None, ch=3,):
     if len(cfg.split('.')) > 1:
