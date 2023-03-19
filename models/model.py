@@ -16,6 +16,7 @@ def build_model(cfg, nc, anchors=None, ch=3,):
           from models.Newmodel import Model
         else:
             raise Exception(f'mmodel {cfg} not exist')
+        
     model = Model(cfg, nc, anchors)
     print(parameter_count_table(model))
     return model
