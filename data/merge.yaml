@@ -10,22 +10,14 @@ val:
     - F:/dataset/BDD100k_10k/labels/bdd_lane_gt_muti/val   # Lane Detection
 
 merge: {
-        'car'   :['car','truck','bus','train'],
-        'person':['motor','rider','person']
+        'car'   :['car','truck','bus', 'motor','rider'],
         }
 # class names
-Det_names: ['car','person', 'traffic sign','traffic light'] # no train
+Det_names: ['car'] # no train
 
 Lane_names: {
              'background'    : [  0,   0,   0], ## 'background' is need
-             'crosswalk'     : [219,  94,  86],
-             'double_other'  : [ 86, 111, 219],
-             'double_white'  : [145, 219,  86],
-             'double_yellow' : [ 86, 219, 127],
-             'curb'          : [ 86, 211, 219],
-             'single_other'  : [219, 194,  86],
-             'single_white'  : [160,  86, 219],
-             'single_yellow' : [219,  86, 178]
+             'lane' : [255,255, 255]
             }
 DriveArea_names: {
                   'background'    : [  0,   0,   0], ## 'background' is need

@@ -17,7 +17,7 @@ from utils.plot import plot_one_box,show_seg_result
 from utils.torch_utils import select_device, time_synchronized
 from utils.postprocess import morphological_process, connect_lane
 from utils.general import colorstr, increment_path, write_log, non_max_suppression,\
-                        scale_coords, data_color, AverageMeter, OpCounter, addText2image
+                        scale_coords, data_color, AverageMeter, OpCounter, addText2image, convert
 
 
 
@@ -146,6 +146,11 @@ def detect(args, device, expName):
             if len(det):
                 det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
                 for *xyxy,conf,cls in reversed(det):
+                    if args.saveTxt:
+                        label_path = save_dir / (Path(path).stem + ".txt")
+                        xywh = convert([w,h],[xyxy[0],xyxy[2],xyxy[1],xyxy[3]])
+                        msg =f'{int(cls)} {"%.4f"%xywh[0]} {"%.4f"%xywh[1]} {"%.4f"%xywh[2]} {"%.4f"%xywh[3]}'
+                        write_log(label_path, msg)
                     label_det_pred = f'{names[int(cls)]} {conf:.2f}'
                     plot_one_box(xyxy, img_det , label=label_det_pred, 
                                             color=colors[int(cls)], line_thickness=2)
@@ -189,11 +194,11 @@ if __name__ == '__main__':
                             help='log directory')
     parser.add_argument('--weights', type=str, default='./weights/last.pth', 
                                                     help='model.pth path(s)')
-    parser.add_argument('--cfg', type=str, default='Newmodel', 
-                                                    help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/multi.yaml', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
+                                            help='model yaml path')
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
-    parser.add_argument('--source', type=str, default='./inference/images', 
+    parser.add_argument('--source', type=str, default='./inference/RVLDataset_w_marker_700/images/train', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
@@ -208,6 +213,7 @@ if __name__ == '__main__':
     parser.add_argument('--draw', type=bool, default= True)
     parser.add_argument('--augment', action='store_true',help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
+    parser.add_argument('--saveTxt', type=bool, default= False)
     args = parser.parse_args()
 
     device = select_device(args.device)
