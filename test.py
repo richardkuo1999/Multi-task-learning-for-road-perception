@@ -17,7 +17,7 @@ from utils.loss import MultiHeadLoss
 from models.model import build_model
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device, time_synchronized
-from utils.plot import plot_one_box,show_seg_result,plot_img_and_mask,plot_images
+from utils.plot import plot_one_box,show_seg_result
 from utils.metrics import ConfusionMatrix, SegmentationMetric, ap_per_class,\
                             output_to_target, ap_per_class
 from utils.general import colorstr, increment_path, write_log,non_max_suppression,\
