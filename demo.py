@@ -13,7 +13,7 @@ import torchvision.transforms as transforms
 
 from models.model import build_model
 from utils.datasets import LoadImages
-from utils.plot import plot_one_box,show_seg_result
+from utils.plot import plot_one_box,show_seg_result, save_seg_mask
 from utils.torch_utils import select_device, time_synchronized
 from utils.postprocess import morphological_process, connect_lane
 from utils.general import colorstr, increment_path, write_log, non_max_suppression,\
@@ -127,7 +127,10 @@ def detect(args, device, expName):
         da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
         # da_seg_mask = morphological_process(da_seg_mask, kernel_size=7)
         show_seg_result(img_det, da_seg_mask, DriveArea_color)
-
+        if args.savelabel:
+            save_path = save_dir / 'DriveArea'
+            save_path.mkdir(exist_ok=True)  # make dir
+            save_seg_mask(da_seg_mask, DriveArea_color, save_path/Path(path).name)
         
         ll_predict = ll_seg_out[:, :,pad_h:(height-pad_h),pad_w:(width-pad_w)]
         ll_seg_mask = torch.nn.functional.interpolate(ll_predict, 
@@ -138,19 +141,22 @@ def detect(args, device, expName):
         #ll_seg_mask = morphological_process(ll_seg_mask, kernel_size=7, func_type=cv2.MORPH_OPEN)
         #ll_seg_mask = connect_lane(ll_seg_mask)
         show_seg_result(img_det, ll_seg_mask, Lane_color)
-
-        # args.savelabel:
+        if args.savelabel:
+            save_path = save_dir / 'laneline'
+            save_path.mkdir(exist_ok=True)  # make dir
+            save_seg_mask(ll_seg_mask, Lane_color, save_path/Path(path).name)
+        
 
         if len(det):
             det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
             for *xyxy,conf,cls in reversed(det):
                 if args.savelabel:
-                    label_path = save_dir / 'object'
-                    label_path.mkdir(exist_ok=True)
-                    label_path = label_path / (Path(path).stem + ".txt")
+                    save_path = save_dir / 'object'
+                    save_path.mkdir(exist_ok=True)
+                    save_path = save_path / (Path(path).stem + ".txt")
                     xywh = convert([w,h],[xyxy[0],xyxy[2],xyxy[1],xyxy[3]])
                     msg =f'{int(cls)} {"%.4f"%xywh[0]} {"%.4f"%xywh[1]} {"%.4f"%xywh[2]} {"%.4f"%xywh[3]}'
-                    write_log(label_path, msg)
+                    write_log(save_path, msg)
                 label_det_pred = f'{names[int(cls)]} {conf:.2f}'
                 plot_one_box(xyxy, img_det , label=label_det_pred, 
                                         color=colors[int(cls)], line_thickness=2)

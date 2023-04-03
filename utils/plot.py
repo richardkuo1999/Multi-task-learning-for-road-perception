@@ -128,6 +128,13 @@ def show_seg_result(img, result, palette=None):
 
     img = img.astype(np.uint8)
 
+def save_seg_mask(result, palette, save_path):
+    
+    color_seg = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
+    for label, color in enumerate(palette):
+        color_seg[result == label, :] = color
+
+    cv2.imwrite(str(save_path),color_seg)
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     # Plots one bounding box on image img
