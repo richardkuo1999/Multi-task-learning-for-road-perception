@@ -113,9 +113,6 @@ def detect(args, device, expName):
         nms_time.update(t4-t3,img.size(0))
         det=det_pred[0]
 
-        save_path = save_dir / Path(path).name \
-            if dataset.mode != 'stream' else save_dir / "web.mp4"
-
         _, _, height, width = img.shape
         h,w,_=img_det.shape
         pad_w, pad_h = shapes[1][1]
@@ -129,6 +126,7 @@ def detect(args, device, expName):
         _, da_seg_mask = torch.max(da_seg_mask, 1)
         da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
         # da_seg_mask = morphological_process(da_seg_mask, kernel_size=7)
+        show_seg_result(img_det, da_seg_mask, DriveArea_color)
 
         
         ll_predict = ll_seg_out[:, :,pad_h:(height-pad_h),pad_w:(width-pad_w)]
@@ -139,24 +137,33 @@ def detect(args, device, expName):
         # Lane line post-processing
         #ll_seg_mask = morphological_process(ll_seg_mask, kernel_size=7, func_type=cv2.MORPH_OPEN)
         #ll_seg_mask = connect_lane(ll_seg_mask)
+        show_seg_result(img_det, ll_seg_mask, Lane_color)
+
+        # args.savelabel:
+
+        if len(det):
+            det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
+            for *xyxy,conf,cls in reversed(det):
+                if args.savelabel:
+                    label_path = save_dir / 'object'
+                    label_path.mkdir(exist_ok=True)
+                    label_path = label_path / (Path(path).stem + ".txt")
+                    xywh = convert([w,h],[xyxy[0],xyxy[2],xyxy[1],xyxy[3]])
+                    msg =f'{int(cls)} {"%.4f"%xywh[0]} {"%.4f"%xywh[1]} {"%.4f"%xywh[2]} {"%.4f"%xywh[3]}'
+                    write_log(label_path, msg)
+                label_det_pred = f'{names[int(cls)]} {conf:.2f}'
+                plot_one_box(xyxy, img_det , label=label_det_pred, 
+                                        color=colors[int(cls)], line_thickness=2)
+
+        fps= round(1/(inf_time.val+nms_time.val))
+        print(f'FPS:{fps}')
         if args.draw:
-            img_det = show_seg_result(img_det, (da_seg_mask, ll_seg_mask), _, _, 
-                                palette=(DriveArea_color,Lane_color), is_demo=True)
 
-            if len(det):
-                det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
-                for *xyxy,conf,cls in reversed(det):
-                    if args.saveTxt:
-                        label_path = save_dir / (Path(path).stem + ".txt")
-                        xywh = convert([w,h],[xyxy[0],xyxy[2],xyxy[1],xyxy[3]])
-                        msg =f'{int(cls)} {"%.4f"%xywh[0]} {"%.4f"%xywh[1]} {"%.4f"%xywh[2]} {"%.4f"%xywh[3]}'
-                        write_log(label_path, msg)
-                    label_det_pred = f'{names[int(cls)]} {conf:.2f}'
-                    plot_one_box(xyxy, img_det , label=label_det_pred, 
-                                            color=colors[int(cls)], line_thickness=2)
-
-            fps= round(1/(inf_time.val+nms_time.val))
-            print(f'FPS:{fps}')
+            save_path = save_dir / 'visualization'
+            save_path.mkdir(exist_ok=True)
+            save_path = save_path / Path(path).name \
+                if dataset.mode != 'stream' else save_dir / "web.mp4"
+            
             img_det = addText2image(img_det, expName,fps)
             if dataset.mode == 'image':
                 cv2.imwrite(str(save_path),img_det)
@@ -198,7 +205,7 @@ if __name__ == '__main__':
                                             help='model yaml path')
     parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
-    parser.add_argument('--source', type=str, default='./inference/RVLDataset_w_marker_700/images/train', 
+    parser.add_argument('--source', type=str, default='./inference/images/', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
@@ -213,7 +220,7 @@ if __name__ == '__main__':
     parser.add_argument('--draw', type=bool, default= True)
     parser.add_argument('--augment', action='store_true',help='augmented inference')
     parser.add_argument('--update', action='store_true', help='update all models')
-    parser.add_argument('--saveTxt', type=bool, default= False)
+    parser.add_argument('--savelabel', type=bool, default= True)
     args = parser.parse_args()
 
     device = select_device(args.device)

@@ -114,18 +114,11 @@ def plot_img_and_mask(img, mask, index,epoch,save_dir):
     # plt.show()
     plt.savefig(save_dir+"/batch_{}_{}_seg.png".format(epoch,index))
 
-def show_seg_result(img, result, palette=None,is_demo=False):
+def show_seg_result(img, result, palette=None):
     
-    if not is_demo:
-        color_seg = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
-        for label, color in enumerate(palette):
-            color_seg[result == label, :] = color
-    else:
-        color_seg = np.zeros((result[0].shape[0], result[0].shape[1], 3), dtype=np.uint8)
-        for i in range(len(palette)):
-            for label, color in enumerate(palette[i][1:], 1):
-                color_seg[result[i] == label, :] = color
-
+    color_seg = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
+    for label, color in enumerate(palette):
+        color_seg[result == label, :] = color
 
     # convert to BGR
     color_seg = color_seg[..., ::-1]
@@ -135,7 +128,6 @@ def show_seg_result(img, result, palette=None,is_demo=False):
 
     img = img.astype(np.uint8)
 
-    return img
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     # Plots one bounding box on image img
