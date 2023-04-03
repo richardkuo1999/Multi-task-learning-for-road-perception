@@ -153,7 +153,9 @@ def main(args, hyp, device, writer):
                    (1 - hyp['lrf']) + hyp['lrf']  # cosine
     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
 
-
+    for i in range(1000):
+        print*()
+        lr_scheduler.step()
     # # assign model params
     model.gr = 1.0
     model.nc = hyp['nc'][0]
@@ -227,6 +229,7 @@ def main(args, hyp, device, writer):
             batch_time.update(time.time() - start)
             if i % 10 == 0:
                 lr = optimizer.state_dict()['param_groups'][0]['lr']
+                writer.add_scalar('lr', lr, global_steps)
                 msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}] '+\
                         f'lr: [{lr}] '
                 
