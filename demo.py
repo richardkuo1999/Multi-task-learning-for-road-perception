@@ -130,7 +130,7 @@ def detect(args, device, expName):
         if args.savelabel:
             save_path = save_dir / 'DriveArea'
             save_path.mkdir(exist_ok=True)  # make dir
-            save_seg_mask(da_seg_mask, DriveArea_color, save_path/Path(path).name)
+            save_seg_mask(da_seg_mask, DriveArea_color, save_path/f'{Path(path).stem}.png')
         
         ll_predict = ll_seg_out[:, :,pad_h:(height-pad_h),pad_w:(width-pad_w)]
         ll_seg_mask = torch.nn.functional.interpolate(ll_predict, 
@@ -144,7 +144,7 @@ def detect(args, device, expName):
         if args.savelabel:
             save_path = save_dir / 'laneline'
             save_path.mkdir(exist_ok=True)  # make dir
-            save_seg_mask(ll_seg_mask, Lane_color, save_path/Path(path).name)
+            save_seg_mask(ll_seg_mask, Lane_color, save_path/f'{Path(path).stem}.png')
         
 
         if len(det):
@@ -211,7 +211,7 @@ if __name__ == '__main__':
                                             help='model yaml path')
     parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
-    parser.add_argument('--source', type=str, default='./inference/images/', 
+    parser.add_argument('--source', type=str, default='./inference/tt/', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
