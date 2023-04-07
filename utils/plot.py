@@ -114,18 +114,11 @@ def plot_img_and_mask(img, mask, index,epoch,save_dir):
     # plt.show()
     plt.savefig(save_dir+"/batch_{}_{}_seg.png".format(epoch,index))
 
-def show_seg_result(img, result, index, epoch, save_dir=None, is_ll=False,palette=None,is_demo=False,is_gt=False):
+def show_seg_result(img, result, palette=None):
     
-    if not is_demo:
-        color_seg = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
-        for label, color in enumerate(palette):
-            color_seg[result == label, :] = color
-    else:
-        color_seg = np.zeros((result[0].shape[0], result[0].shape[1], 3), dtype=np.uint8)
-        for i in range(len(palette)):
-            for label, color in enumerate(palette[i][1:], 1):
-                color_seg[result[i] == label, :] = color
-
+    color_seg = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
+    for label, color in enumerate(palette):
+        color_seg[result == label, :] = color
 
     # convert to BGR
     color_seg = color_seg[..., ::-1]
@@ -134,20 +127,14 @@ def show_seg_result(img, result, index, epoch, save_dir=None, is_ll=False,palett
     img[color_mask != 0] = img[color_mask != 0] * 0.3 + color_seg[color_mask != 0] * 0.7
 
     img = img.astype(np.uint8)
-    img = cv2.resize(img, (1280,720), interpolation=cv2.INTER_LINEAR)
 
-    # if not is_demo:
-    #     if not is_gt:
-    #         if not is_ll:
-    #             cv2.imwrite(save_dir+"/batch_{}_{}_da_segresult.png".format(epoch,index), img)
-    #         else:
-    #             cv2.imwrite(save_dir+"/batch_{}_{}_ll_segresult.png".format(epoch,index), img)
-    #     else:
-    #         if not is_ll:
-    #             cv2.imwrite(save_dir+"/batch_{}_{}_da_seg_gt.png".format(epoch,index), img)
-    #         else:
-    #             cv2.imwrite(save_dir+"/batch_{}_{}_ll_seg_gt.png".format(epoch,index), img)  
-    return img
+def save_seg_mask(result, palette, save_path):
+    
+    color_seg = np.zeros((result.shape[0], result.shape[1], 3), dtype=np.uint8)
+    for label, color in enumerate(palette):
+        color_seg[result == label, :] = color
+
+    cv2.imwrite(str(save_path),color_seg)
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     # Plots one bounding box on image img

@@ -17,7 +17,7 @@ from utils.loss import MultiHeadLoss
 from models.model import build_model
 from utils.datasets import create_dataloader
 from utils.torch_utils import select_device, time_synchronized
-from utils.plot import plot_one_box,show_seg_result,plot_img_and_mask,plot_images
+from utils.plot import plot_one_box,show_seg_result
 from utils.metrics import ConfusionMatrix, SegmentationMetric, ap_per_class,\
                             output_to_target, ap_per_class
 from utils.general import colorstr, increment_path, write_log,non_max_suppression,\
@@ -128,13 +128,13 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     da_seg_mask = torch.nn.functional.interpolate(da_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, da_seg_mask = torch.max(da_seg_mask, 1)
                     da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
-                    img_test = show_seg_result(img_test, da_seg_mask, i,epoch, save_dir, palette=DriveArea_color)
+                    show_seg_result(img_test, da_seg_mask, palette=DriveArea_color)
 
                     ll_seg_mask = ll_seg_out[i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
                     ll_seg_mask = torch.nn.functional.interpolate(ll_seg_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, ll_seg_mask = torch.max(ll_seg_mask, 1)
                     ll_seg_mask = ll_seg_mask.int().squeeze().cpu().numpy()
-                    img_test = show_seg_result(img_test, ll_seg_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True)
+                    show_seg_result(img_test, ll_seg_mask, palette=Lane_color)
 
                     det = output[i].clone()
                     if len(det):
@@ -152,14 +152,13 @@ def test(epoch, args, hyp, val_loader, model, criterion, output_dir,
                     da_gt_mask = torch.nn.functional.interpolate(da_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, da_gt_mask = torch.max(da_gt_mask, 1)
                     da_gt_mask = da_gt_mask.int().squeeze().cpu().numpy()
-                    img_GT = show_seg_result(img_GT, da_gt_mask, i, epoch, save_dir, palette=DriveArea_color, is_gt=True)
+                    show_seg_result(img_GT, da_gt_mask, palette=DriveArea_color)
 
                     ll_gt_mask = target[2][i][:, pad_h:height-pad_h, pad_w:width-pad_w].unsqueeze(0)
                     ll_gt_mask = torch.nn.functional.interpolate(ll_gt_mask, scale_factor=int(1/ratio), mode='bilinear')
                     _, ll_gt_mask = torch.max(ll_gt_mask, 1)
                     ll_gt_mask = ll_gt_mask.int().squeeze().cpu().numpy()
-                    img_GT = show_seg_result(img_GT, ll_gt_mask, i, epoch, save_dir, palette=Lane_color, is_ll=True, 
-                                                                                                    is_gt=True)
+                    show_seg_result(img_GT, ll_gt_mask, palette=Lane_color)
                     labels = target[0][target[0][:, 0] == i, 1:]
                     # print(labels)
                     labels[:,1:5]=xywh2xyxy(labels[:,1:5])
@@ -340,9 +339,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Test Multitask network')
     parser.add_argument('--hyp', type=str, default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
-    parser.add_argument('--cfg', type=str, default='Newmodel', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                                 help='model.yaml path')
-    parser.add_argument('--data', type=str, default='data/multi.yaml', 
+    parser.add_argument('--data', type=str, default='data/single.yaml', 
                                             help='dataset yaml path')
     parser.add_argument('--logDir', type=str, default='runs/test',
                             help='log directory')
