@@ -153,9 +153,6 @@ def main(args, hyp, device, writer):
                    (1 - hyp['lrf']) + hyp['lrf']  # cosine
     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
 
-    for i in range(1000):
-        print*()
-        lr_scheduler.step()
     # # assign model params
     model.gr = 1.0
     model.nc = hyp['nc'][0]
