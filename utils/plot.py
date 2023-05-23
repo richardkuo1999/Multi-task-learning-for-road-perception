@@ -124,7 +124,10 @@ def show_seg_result(img, result, palette=None):
     color_seg = color_seg[..., ::-1]
     # print(color_seg.shape)
     color_mask = np.mean(color_seg, 2)
-    img[color_mask != 0] = img[color_mask != 0] * 0.3 + color_seg[color_mask != 0] * 0.7
+    # FIXME
+    # img[color_mask != 0] = img[color_mask != 0] * 0.3 + color_seg[color_mask != 0] * 0.7
+    img[color_mask != 0] = color_seg[color_mask != 0]
+    # img[color_mask == 0] = 0
 
     img = img.astype(np.uint8)
 
@@ -134,6 +137,9 @@ def save_seg_mask(result, palette, save_path):
     for label, color in enumerate(palette):
         color_seg[result == label, :] = color
 
+    # convert to BGR
+    color_seg = color_seg[..., ::-1]
+    
     cv2.imwrite(str(save_path),color_seg)
 
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):

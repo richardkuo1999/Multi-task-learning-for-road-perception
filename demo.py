@@ -126,7 +126,8 @@ def detect(args, device, expName):
         _, da_seg_mask = torch.max(da_seg_mask, 1)
         da_seg_mask = da_seg_mask.int().squeeze().cpu().numpy()
         # da_seg_mask = morphological_process(da_seg_mask, kernel_size=7)
-        show_seg_result(img_det, da_seg_mask, DriveArea_color)
+        if args.draw:
+            show_seg_result(img_det, da_seg_mask, DriveArea_color)
         if args.savelabel:
             save_path = save_dir / 'DriveArea'
             save_path.mkdir(exist_ok=True)  # make dir
@@ -140,13 +141,15 @@ def detect(args, device, expName):
         # Lane line post-processing
         #ll_seg_mask = morphological_process(ll_seg_mask, kernel_size=7, func_type=cv2.MORPH_OPEN)
         #ll_seg_mask = connect_lane(ll_seg_mask)
-        show_seg_result(img_det, ll_seg_mask, Lane_color)
+        if args.draw:
+            show_seg_result(img_det, ll_seg_mask, Lane_color)
         if args.savelabel:
             save_path = save_dir / 'laneline'
             save_path.mkdir(exist_ok=True)  # make dir
             save_seg_mask(ll_seg_mask, Lane_color, save_path/f'{Path(path).stem}.png')
         
 
+        # FIXME
         if len(det):
             det[:,:4] = scale_coords(img.shape[2:],det[:,:4],img_det.shape).round()
             for *xyxy,conf,cls in reversed(det):
@@ -169,7 +172,7 @@ def detect(args, device, expName):
             save_path.mkdir(exist_ok=True)
             save_path = save_path / Path(path).name \
                 if dataset.mode != 'stream' else save_dir / "web.mp4"
-            
+            # FIXME
             img_det = addText2image(img_det, expName,fps)
             if dataset.mode == 'image':
                 cv2.imwrite(str(save_path),img_det)
@@ -205,13 +208,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--logDir', type=str, default='runs/demo',
                             help='log directory')
-    parser.add_argument('--weights', type=str, default='./weights/last.pth', 
+    parser.add_argument('--weights', type=str, default='./weights/epoch-200.pth', 
                                                     help='model.pth path(s)')
     parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                             help='model yaml path')
-    parser.add_argument('--data', type=str, default='data/single.yaml', 
+    parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
-    parser.add_argument('--source', type=str, default='./inference/tt/', 
+    parser.add_argument('--source', type=str, default='./inference/36_GH015559', 
                                                     help='source')  
     parser.add_argument('--img-size', type=int, default=640, 
                                                     help='inference size (pixels)')
