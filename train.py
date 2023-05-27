@@ -303,7 +303,7 @@ def parse_args():
                             default='hyp/hyp.scratch.yolop.yaml', 
                             help='hyperparameter path')
                             # yolop_backbone
-    parser.add_argument('--cfg', type=str, default='Newmodel', 
+    parser.add_argument('--cfg', type=str, default='cfg/YOLOP_v7b3.yaml', 
                                             help='model yaml path')
     parser.add_argument('--data', type=str, default='data/multi.yaml', 
                                             help='dataset yaml path')
