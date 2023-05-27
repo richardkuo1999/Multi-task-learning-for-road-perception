@@ -1,11 +1,9 @@
-import os
 import yaml
 import math
 import time
 import argparse
 import logging
 import numpy as np
-from tqdm import tqdm
 from pathlib import Path
 from tensorboardX import SummaryWriter
 

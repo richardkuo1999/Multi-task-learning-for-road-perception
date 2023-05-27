@@ -1,11 +1,9 @@
 import cv2
 import yaml
-import json
 import random
 import logging
 import argparse
 import numpy as np
-from PIL import Image
 from tqdm import tqdm
 from pathlib import Path
 
@@ -413,7 +411,7 @@ if __name__ == '__main__':
     model_dict = model.state_dict()
     checkpoint_file = args.weights
     print("=> loading checkpoint '{}'".format(checkpoint_file))
-    checkpoint = torch.load(checkpoint_file)
+    checkpoint = torch.load(checkpoint_file, map_location= device)
     checkpoint_dict = checkpoint['state_dict']
     # checkpoint_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.split(".")[1] in det_idx_range}
     model_dict.update(checkpoint_dict)
@@ -426,7 +424,6 @@ if __name__ == '__main__':
     print('bulid model finished')
 
     epoch = checkpoint['epoch'] #special for test
-    # Save run settings
 
         # Data loading
     print("begin to load data")
@@ -437,6 +434,7 @@ if __name__ == '__main__':
                                                                 shuffle=False)
     print('load data finished')
 
+    # Save run settings
     with open(args.save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
     with open(args.save_dir / 'args.yaml', 'w') as f:
