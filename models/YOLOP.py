@@ -87,8 +87,8 @@ class Model(nn.Module):
         cache = []
         out = []
         det_out = None
-        # print(x.size())
         for i, block in enumerate(self.model):
+            # print(x.size())
             # print(i, block)
             if block.f != -1:
                 x = cache[block.f] if isinstance(block.f, int) else [x if j == -1 else cache[j] for j in block.f]       #calculate concat detect
@@ -140,7 +140,7 @@ def parse_model(d, ch):
         
         n = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in [nn.Conv2d, Conv, RepConv, SPP, SPPCSPC, Focus, 
-                Bottleneck, BottleneckCSP]:
+                Bottleneck, BottleneckCSP, DownC]:
             c1, c2 = ch[f], args[0]
             # if c2 != no:  # if not output
             #     c2 = make_divisible(c2 * gw, 8)
@@ -151,9 +151,13 @@ def parse_model(d, ch):
                 n = 1
         elif m is nn.BatchNorm2d:
             args = [ch[f]]
+        elif m is Shortcut:
+            c2 = ch[f[0]]
+        elif m is ReOrg:
+            c2 = ch[f] * 4
         elif m is Concat:
             c2 = sum([ch[x] for x in f])
-        elif m in [Detect, IDetect]:
+        elif m in [Detect, IDetect,IAuxDetect]:
             args.append([ch[x] for x in f])
             if isinstance(args[1], int):  # number of anchors
                 args[1] = [list(range(args[1] * 2))] * len(f)
@@ -161,7 +165,7 @@ def parse_model(d, ch):
             c2 = ch[f] * args[0] ** 2
         else:
             c2 = ch[f]
-
+        # print(i,f, n, m,c2, args)
         m_ = nn.Sequential(*[m(*args) for _ in range(n)]) if n > 1 else m(*args)
         t = str(m)[8:-2].replace('__main__.', '')  # module type
         np = sum([x.numel() for x in m_.parameters()])  # number params
@@ -176,7 +180,7 @@ def parse_model(d, ch):
 
 
 if __name__ == "__main__":
-    cfg = 'F:/ITRI/YOLOP/cfg/YOLOP_v7bT2_ReConv.yaml'
+    cfg = 'F:/ITRI/YOLOP/cfg/YOLOP_v7b3.yaml'
     device = select_device('', batch_size=1)
 
 
@@ -186,9 +190,11 @@ if __name__ == "__main__":
     nc = [Det_class, Lane_class, DriveArea_class]
 
     model = Model(cfg, nc).to(device)
-    
+    print("build model done")
+
     input = torch.randn((1, 3, 640, 640)).to(device, non_blocking=True)
     model_out = model(input)
+
     print(model_out)
     detects, dring_area_seg, lane_line_seg = model_out
     print('detects:', len(detects),detects[0].size())

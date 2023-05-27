@@ -21,6 +21,13 @@ class MP(nn.Module):
     def forward(self, x):
         return self.m(x)
 
+class ReOrg(nn.Module):
+    def __init__(self):
+        super(ReOrg, self).__init__()
+
+    def forward(self, x):  # x(b,c,w,h) -> y(b,4c,w/2,h/2)
+        return torch.cat([x[..., ::2, ::2], x[..., 1::2, ::2], x[..., ::2, 1::2], x[..., 1::2, 1::2]], 1)
+    
 class DepthSeperabelConv2d(nn.Module):
     """
     DepthSeperable Convolution 2d with residual connection
@@ -60,7 +67,14 @@ class DepthSeperabelConv2d(nn.Module):
         return out
 
 
+class Shortcut(nn.Module):
+    def __init__(self, dimension=0):
+        super(Shortcut, self).__init__()
+        self.d = dimension
 
+    def forward(self, x):
+        return x[0]+x[1]
+    
 class SharpenConv(nn.Module):
     # SharpenConv convolution
     def __init__(self, c1, c2, k=3, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
@@ -104,7 +118,19 @@ class MemoryEfficientSwish(nn.Module):
     def forward(self, x):
         return self.F.apply(x)
 
+class DownC(nn.Module):
+    # Spatial pyramid pooling layer used in YOLOv3-SPP
+    def __init__(self, c1, c2, n=1, k=2):
+        super(DownC, self).__init__()
+        c_ = int(c1)  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c_, c2//2, 3, k)
+        self.cv3 = Conv(c1, c2//2, 1, 1)
+        self.mp = nn.MaxPool2d(kernel_size=k, stride=k)
 
+    def forward(self, x):
+        return torch.cat((self.cv2(self.cv1(x)), self.cv3(self.mp(x))), dim=1)
+    
 # Mish https://github.com/digantamisra98/Mish --------------------------------------------------------------------------
 class Mish(nn.Module):
     @staticmethod
@@ -752,58 +778,124 @@ class IDetect(nn.Module):
                                            device=z.device)
         box @= convert_matrix                          
         return (box, score)
-"""class Detections:
-    # detections class for YOLOv5 inference results
-    def __init__(self, imgs, pred, names=None):
-        super(Detections, self).__init__()
-        d = pred[0].device  # device
-        gn = [torch.tensor([*[im.shape[i] for i in [1, 0, 1, 0]], 1., 1.], device=d) for im in imgs]  # normalizations
-        self.imgs = imgs  # list of images as numpy arrays
-        self.pred = pred  # list of tensors pred[0] = (xyxy, conf, cls)
-        self.names = names  # class names
-        self.xyxy = pred  # xyxy pixels
-        self.xywh = [xyxy2xywh(x) for x in pred]  # xywh pixels
-        self.xyxyn = [x / g for x, g in zip(self.xyxy, gn)]  # xyxy normalized
-        self.xywhn = [x / g for x, g in zip(self.xywh, gn)]  # xywh normalized
-        self.n = len(self.pred)
 
-    def display(self, pprint=False, show=False, save=False):
-        colors = color_list()
-        for i, (img, pred) in enumerate(zip(self.imgs, self.pred)):
-            str = f'Image {i + 1}/{len(self.pred)}: {img.shape[0]}x{img.shape[1]} '
-            if pred is not None:
-                for c in pred[:, -1].unique():
-                    n = (pred[:, -1] == c).sum()  # detections per class
-                    str += f'{n} {self.names[int(c)]}s, '  # add to string
-                if show or save:
-                    img = Image.fromarray(img.astype(np.uint8)) if isinstance(img, np.ndarray) else img  # from np
-                    for *box, conf, cls in pred:  # xyxy, confidence, class
-                        # str += '%s %.2f, ' % (names[int(cls)], conf)  # label
-                        ImageDraw.Draw(img).rectangle(box, width=4, outline=colors[int(cls) % 10])  # plot
-            if save:
-                f = f'results{i}.jpg'
-                str += f"saved to '{f}'"
-                img.save(f)  # save
-            if show:
-                img.show(f'Image {i}')  # show
-            if pprint:
-                print(str)
+class IAuxDetect(nn.Module):
+    stride = None  # strides computed during build
+    export = False  # onnx export
+    end2end = False
+    include_nms = False
+    concat = False
 
-    def print(self):
-        self.display(pprint=True)  # print results
+    def __init__(self, nc=80, anchors=(), ch=()):  # detection layer
+        super(IAuxDetect, self).__init__()
+        self.nc = nc  # number of classes
+        self.no = nc + 5  # number of outputs per anchor
+        self.nl = len(anchors)  # number of detection layers
+        self.na = len(anchors[0]) // 2  # number of anchors
+        self.grid = [torch.zeros(1)] * self.nl  # init grid
+        a = torch.tensor(anchors).float().view(self.nl, -1, 2)
+        self.register_buffer('anchors', a)  # shape(nl,na,2)
+        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
+        self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch[:self.nl])  # output conv
+        self.m2 = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch[self.nl:])  # output conv
+        
+        self.ia = nn.ModuleList(ImplicitA(x) for x in ch[:self.nl])
+        self.im = nn.ModuleList(ImplicitM(self.no * self.na) for _ in ch[:self.nl])
 
-    def show(self):
-        self.display(show=True)  # show results
+    def forward(self, x):
+        # x = x.copy()  # for profiling
+        z = []  # inference output
+        self.training |= self.export
+        for i in range(self.nl):
+            x[i] = self.m[i](self.ia[i](x[i]))  # conv
+            x[i] = self.im[i](x[i])
+            bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
+            x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
+            
+            x[i+self.nl] = self.m2[i](x[i+self.nl])
+            x[i+self.nl] = x[i+self.nl].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
-    def save(self):
-        self.display(save=True)  # save results
+            if not self.training:  # inference
+                if self.grid[i].shape[2:4] != x[i].shape[2:4]:
+                    self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
 
-    def __len__(self):
-        return self.n
+                y = x[i].sigmoid()
+                if not torch.onnx.is_in_onnx_export():
+                    y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
+                    y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+                else:
+                    xy, wh, conf = y.split((2, 2, self.nc + 1), 4)  # y.tensor_split((2, 4, 5), 4)  # torch 1.8.0
+                    xy = xy * (2. * self.stride[i]) + (self.stride[i] * (self.grid[i] - 0.5))  # new xy
+                    wh = wh ** 2 * (4 * self.anchor_grid[i].data)  # new wh
+                    y = torch.cat((xy, wh, conf), 4)
+                z.append(y.view(bs, -1, self.no))
 
-    def tolist(self):
-        # return a list of Detections objects, i.e. 'for result in results.tolist():'
-        x = [Detections([self.imgs[i]], [self.pred[i]], self.names) for i in range(self.n)]
-        for d in x:
-            for k in ['imgs', 'pred', 'xyxy', 'xyxyn', 'xywh', 'xywhn']:
-                setattr(d, k, getattr(d, k)[0])  # pop out of list"""
+        return x if self.training else (torch.cat(z, 1), x[:self.nl])
+
+    def fuseforward(self, x):
+        # x = x.copy()  # for profiling
+        z = []  # inference output
+        self.training |= self.export
+        for i in range(self.nl):
+            x[i] = self.m[i](x[i])  # conv
+            bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
+            x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
+
+            if not self.training:  # inference
+                if self.grid[i].shape[2:4] != x[i].shape[2:4]:
+                    self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
+
+                y = x[i].sigmoid()
+                if not torch.onnx.is_in_onnx_export():
+                    y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
+                    y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+                else:
+                    xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
+                    wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i].data  # wh
+                    y = torch.cat((xy, wh, y[..., 4:]), -1)
+                z.append(y.view(bs, -1, self.no))
+
+        if self.training:
+            out = x
+        elif self.end2end:
+            out = torch.cat(z, 1)
+        elif self.include_nms:
+            z = self.convert(z)
+            out = (z, )
+        elif self.concat:
+            out = torch.cat(z, 1)            
+        else:
+            out = (torch.cat(z, 1), x)
+
+        return out
+    
+    def fuse(self):
+        print("IAuxDetect.fuse")
+        # fuse ImplicitA and Convolution
+        for i in range(len(self.m)):
+            c1,c2,_,_ = self.m[i].weight.shape
+            c1_,c2_, _,_ = self.ia[i].implicit.shape
+            self.m[i].bias += torch.matmul(self.m[i].weight.reshape(c1,c2),self.ia[i].implicit.reshape(c2_,c1_)).squeeze(1)
+
+        # fuse ImplicitM and Convolution
+        for i in range(len(self.m)):
+            c1,c2, _,_ = self.im[i].implicit.shape
+            self.m[i].bias *= self.im[i].implicit.reshape(c2)
+            self.m[i].weight *= self.im[i].implicit.transpose(0,1)
+
+    @staticmethod
+    def _make_grid(nx=20, ny=20):
+        yv, xv = torch.meshgrid([torch.arange(ny), torch.arange(nx)])
+        return torch.stack((xv, yv), 2).view((1, 1, ny, nx, 2)).float()
+
+    def convert(self, z):
+        z = torch.cat(z, 1)
+        box = z[:, :, :4]
+        conf = z[:, :, 4:5]
+        score = z[:, :, 5:]
+        score *= conf
+        convert_matrix = torch.tensor([[1, 0, 1, 0], [0, 1, 0, 1], [-0.5, 0, 0.5, 0], [0, -0.5, 0, 0.5]],
+                                           dtype=torch.float32,
+                                           device=z.device)
+        box @= convert_matrix                          
+        return (box, score)
