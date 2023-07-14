@@ -100,7 +100,7 @@ pandocfilters
 parso
 pickleshare
 Pillow==9.3.0
-pipreqs==0.4.11
+pipreqs==0.4.12
 ply==3.11
 portalocker==2.6.0
 prefetch-generator==1.0.1
