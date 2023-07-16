@@ -1,9 +1,11 @@
 # Multi-task-learning-for-road-perception
 
 ## Datasets
-  - Panoramic Perception: [BDD100k](https://www.vis.xyz/bdd100k/)
-  - Partial Perception: [YOLOP](https://github.com/hustvl/YOLOP)
+  - Type of Panoramic Perception: [BDD100k](https://www.vis.xyz/bdd100k/)
+  - Type of Partial Perception: [YOLOP](https://github.com/hustvl/YOLOP)
 
+## Weight
+  Download from [here](https://drive.google.com/file/d/1NfhCr4h5564hfjMuqABJ8csqCikdqDnC/view?usp=sharing)
 ## Requirement
   This codebase has been developed with
   ```
